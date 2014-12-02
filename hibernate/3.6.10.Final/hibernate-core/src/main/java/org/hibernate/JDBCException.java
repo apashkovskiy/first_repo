@@ -35,6 +35,8 @@ import java.sql.SQLException;
  * @author Gavin King
  */
 public class JDBCException extends HibernateException {
+	private static final long serialVersionUID = -2099702229945845113L;
+	// CLASS FULLY INSPECTED BY ME
 
 	private SQLException sqle;
 	private String sql;

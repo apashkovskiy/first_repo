@@ -33,6 +33,8 @@ package org.hibernate;
  */
 
 public class TransactionException extends HibernateException {
+	private static final long serialVersionUID = -8785555653895716891L;
+	// CLASS FULLY INSPECTED BY ME
 
 	public TransactionException(String message, Throwable root) {
 		super(message,root);

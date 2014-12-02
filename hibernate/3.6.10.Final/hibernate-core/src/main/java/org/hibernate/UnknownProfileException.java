@@ -30,10 +30,13 @@ package org.hibernate;
  * @author Steve Ebersole
  */
 public class UnknownProfileException extends HibernateException {
+	private static final long serialVersionUID = -6676472866458751532L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 	private final String name;
 
 	public UnknownProfileException(String name) {
-		super( "Unknow fetch profile [" + name + "]" );
+		super("Unknow fetch profile [" + name + "]");
 		this.name = name;
 	}
 

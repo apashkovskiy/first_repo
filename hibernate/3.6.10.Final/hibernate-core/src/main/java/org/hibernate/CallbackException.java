@@ -32,8 +32,9 @@ package org.hibernate;
  * @see Interceptor
  * @author Gavin King
  */
-
 public class CallbackException extends HibernateException {
+	private static final long serialVersionUID = 2562313871503500862L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
 	public CallbackException(Exception root) {
 		super("An exception occurred in a callback", root);
@@ -46,11 +47,4 @@ public class CallbackException extends HibernateException {
 	public CallbackException(String message, Exception e) {
 		super(message, e);
 	}
-
 }
-
-
-
-
-
-

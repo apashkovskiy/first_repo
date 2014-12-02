@@ -31,6 +31,8 @@ import javax.transaction.SystemException;
  * @author Steve Ebersole
  */
 public interface ExceptionMapper {
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Map a JTA {@link SystemException} to the appropriate runtime-based exception.
 	 *

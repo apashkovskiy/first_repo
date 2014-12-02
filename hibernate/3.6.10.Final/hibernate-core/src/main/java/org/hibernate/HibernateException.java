@@ -35,6 +35,8 @@ package org.hibernate;
  * @author Gavin King
  */
 public class HibernateException extends RuntimeException {
+	private static final long serialVersionUID = -5550217781984335244L;
+	// CLASS FULLY INSPECTED BY ME
 
 	public HibernateException(Throwable root) {
 		super(root);
@@ -48,9 +50,3 @@ public class HibernateException extends RuntimeException {
 		super(s);
 	}
 }
-
-
-
-
-
-
