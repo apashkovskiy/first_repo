@@ -29,22 +29,28 @@ import java.util.Iterator;
 /**
  * @author Gavin King
  */
-public final class EmptyIterator implements Iterator {
+public final class EmptyIterator<E> implements Iterator<E> {
+	// CLASS FULLY INSPECTED BY ME
 
-	public static final Iterator INSTANCE = new EmptyIterator();
+	public static final Iterator<?> INSTANCE = new EmptyIterator<Object>();
 
+	public EmptyIterator() {
+		
+	}
+
+	@Override
 	public boolean hasNext() {
 		return false;
 	}
 
-	public Object next() {
+	@Override
+	public E next() {
 		throw new UnsupportedOperationException();
 	}
 
+	@Override
 	public void remove() {
 		throw new UnsupportedOperationException();
 	}
-
-	private EmptyIterator() {}
 
 }

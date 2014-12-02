@@ -28,11 +28,12 @@ package org.hibernate.util;
  * @author Gavin King
  */
 public final class EqualsHelper {
+	// CLASS FULLY INSPECTED BY ME
 
 	public static boolean equals(Object x, Object y) {
 		return x==y || ( x!=null && y!=null && x.equals(y) );
 	}
-	
+
 	private EqualsHelper() {}
 
 }

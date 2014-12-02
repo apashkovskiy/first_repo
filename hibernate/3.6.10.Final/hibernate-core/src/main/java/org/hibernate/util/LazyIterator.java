@@ -27,30 +27,37 @@ package org.hibernate.util;
 import java.util.Iterator;
 import java.util.Map;
 
-public final class LazyIterator implements Iterator {
-	
-	private final Map map;
-	private Iterator iterator;
-	
-	private Iterator getIterator() {
-		if (iterator==null) {
+public final class LazyIterator implements Iterator<Object> {
+	// CLASS FULLY INSPECTED BY ME
+
+	private final Map<?, ?> map;
+	private Iterator<?> iterator;
+
+
+	public LazyIterator(Map<?, ?> map) {
+		this.map = map;
+	}
+
+
+	private Iterator<?> getIterator() {
+		if (iterator == null) {
 			iterator = map.values().iterator();
 		}
 		return iterator;
 	}
 
-	public LazyIterator(Map map) {
-		this.map = map;
-	}
-	
+
+	@Override
 	public boolean hasNext() {
 		return getIterator().hasNext();
 	}
 
+	@Override
 	public Object next() {
 		return getIterator().next();
 	}
 
+	@Override
 	public void remove() {
 		throw new UnsupportedOperationException();
 	}

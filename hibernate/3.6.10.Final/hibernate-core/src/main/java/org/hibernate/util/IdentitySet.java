@@ -35,16 +35,18 @@ import java.util.Set;
  *
  * @author Emmanuel Bernard
  */
-public class IdentitySet implements Set {
+public class IdentitySet<E> implements Set<E> {
+	// CLASS FULLY INSPECTED BY ME
+
 	private static final Object DUMP_VALUE = new Object();
 
-	private final IdentityHashMap map;
+	private final IdentityHashMap<E, Object> map;
 
 	/**
 	 * Create an IdentitySet with default sizing.
 	 */
 	public IdentitySet() {
-		this.map = new IdentityHashMap();
+		this.map = new IdentityHashMap<E, Object>();
 	}
 
 	/**
@@ -53,78 +55,91 @@ public class IdentitySet implements Set {
 	 * @param sizing The sizing of the set to create.
 	 */
 	public IdentitySet(int sizing) {
-		this.map = new IdentityHashMap( sizing );
+		this.map = new IdentityHashMap<E, Object>(sizing);
 	}
 
+	@Override
 	public int size() {
 		return map.size();
 	}
 
+	@Override
 	public boolean isEmpty() {
 		return map.isEmpty();
 	}
 
+	@Override
 	public boolean contains(Object o) {
-		return map.get( o ) == DUMP_VALUE;
+		return map.get(o) == DUMP_VALUE;
 	}
 
-	public Iterator iterator() {
-		return map.entrySet().iterator();
+	@Override
+	public Iterator<E> iterator() {
+		return map.keySet().iterator(); // FIXED by pipan
 	}
 
+	@Override
 	public Object[] toArray() {
 		return map.entrySet().toArray();
 	}
 
-	public Object[] toArray(Object[] a) {
-		return map.entrySet().toArray( a );
+	@Override
+	public <T> T[] toArray(T[] a) {
+		return map.entrySet().toArray(a);
 	}
 
-	public boolean add(Object o) {
-		return map.put( o, DUMP_VALUE ) == null;
+	@Override
+	public boolean add(E o) {
+		return map.put(o, DUMP_VALUE) == null;
 	}
 
+	@Override
 	public boolean remove(Object o) {
-		return map.remove( o ) == DUMP_VALUE;
+		return map.remove(o) == DUMP_VALUE;
 	}
 
-	public boolean containsAll(Collection c) {
-		Iterator it = c.iterator();
-		while ( it.hasNext() ) {
-			if ( !map.containsKey( it.next() ) ) {
+	@Override
+	public boolean containsAll(Collection<?> c) {
+		Iterator<?> it = c.iterator();
+		while (it.hasNext()) {
+			if (!map.containsKey(it.next())) {
 				return false;
 			}
 		}
 		return true;
 	}
 
-	public boolean addAll(Collection c) {
-		Iterator it = c.iterator();
+	@Override
+	public boolean addAll(Collection<? extends E> c) {
 		boolean changed = false;
-		while ( it.hasNext() ) {
-			if ( this.add( it.next() ) ) {
+		Iterator<? extends E> it = c.iterator();
+		while (it.hasNext()) {
+			if (this.add(it.next())) {
 				changed = true;
 			}
 		}
 		return changed;
 	}
 
-	public boolean retainAll(Collection c) {
+	@Override
+	public boolean retainAll(Collection<?> c) {
 		//doable if needed
 		throw new UnsupportedOperationException();
 	}
 
-	public boolean removeAll(Collection c) {
-		Iterator it = c.iterator();
+	@Override
+	public boolean removeAll(Collection<?> c) {
 		boolean changed = false;
-		while ( it.hasNext() ) {
-			if ( this.remove( it.next() ) ) {
+		Iterator<?> it = c.iterator();
+		while (it.hasNext()) {
+			if (this.remove(it.next())) {
 				changed = true;
 			}
 		}
 		return changed;
 	}
 
+	@Override
 	public void clear() {
 		map.clear();
 	}

@@ -26,6 +26,7 @@ package org.hibernate.util;
 
 import javax.transaction.Status;
 import javax.transaction.SystemException;
+import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
 
 import org.hibernate.TransactionException;
@@ -35,8 +36,10 @@ import org.hibernate.engine.SessionFactoryImplementor;
  * @author Gavin King
  */
 public final class JTAHelper {
+	// CLASS FULLY INSPECTED BY ME
 
 	private JTAHelper() {}
+
 
 	public static boolean isRollback(int status) {
 		return status==Status.STATUS_MARKED_ROLLBACK ||
@@ -44,10 +47,6 @@ public final class JTAHelper {
 		       status==Status.STATUS_ROLLEDBACK;
 	}
 
-	public static boolean isInProgress(int status) {
-		return status==Status.STATUS_ACTIVE ||
-		       status==Status.STATUS_MARKED_ROLLBACK;
-	}
 
 	/**
 	 * Return true if a JTA transaction is in progress
@@ -56,22 +55,26 @@ public final class JTAHelper {
 	public static boolean isTransactionInProgress(SessionFactoryImplementor factory) {
 		TransactionManager tm = factory.getTransactionManager();
 		try {
-			return tm != null && isTransactionInProgress( tm.getTransaction() );
-		}
-		catch (SystemException se) {
-			throw new TransactionException( "could not obtain JTA Transaction", se );
+			return tm != null && isTransactionInProgress(tm.getTransaction());
+		} catch (SystemException se) {
+			throw new TransactionException("could not obtain JTA Transaction", se);
 		}
 	}
 
-	public static boolean isTransactionInProgress(javax.transaction.Transaction tx) throws SystemException {
-		return tx != null && JTAHelper.isInProgress( tx.getStatus() );
+	public static boolean isTransactionInProgress(Transaction tx) throws SystemException {
+		return tx != null && isInProgress(tx.getStatus());
+	}
+
+	public static boolean isInProgress(int status) {
+		return status==Status.STATUS_ACTIVE || status==Status.STATUS_MARKED_ROLLBACK;
+	}
+
+
+	public static boolean isMarkedForRollback(Transaction tx) throws SystemException {
+		return isMarkedForRollback(tx.getStatus());
 	}
 
 	public static boolean isMarkedForRollback(int status) {
 		return status == Status.STATUS_MARKED_ROLLBACK;
-	}
-
-	public static boolean isMarkedForRollback(javax.transaction.Transaction tx) throws SystemException {
-		return isMarkedForRollback( tx.getStatus() );
 	}
 }
