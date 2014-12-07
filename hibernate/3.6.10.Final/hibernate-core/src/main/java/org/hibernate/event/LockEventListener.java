@@ -34,6 +34,7 @@ import java.io.Serializable;
  * @author Steve Ebersole
  */
 public interface LockEventListener extends Serializable {
+	// CLASS FULLY INSPECTED BY ME
 
     /** Handle the given lock event.
      *
@@ -42,4 +43,3 @@ public interface LockEventListener extends Serializable {
      */
 	public void onLock(LockEvent event) throws HibernateException;
 }
-

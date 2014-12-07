@@ -35,6 +35,7 @@ import java.util.Set;
  * @author Steve Ebersole
  */
 public interface DeleteEventListener extends Serializable {
+	// CLASS FULLY INSPECTED BY ME
 
     /** Handle the given delete event.
      *
@@ -43,5 +44,5 @@ public interface DeleteEventListener extends Serializable {
      */
 	public void onDelete(DeleteEvent event) throws HibernateException;
 
-	public void onDelete(DeleteEvent event, Set transientEntities) throws HibernateException;
+	public void onDelete(DeleteEvent event, Set<Object> transientEntities) throws HibernateException;
 }

@@ -33,5 +33,6 @@ import org.hibernate.cfg.Configuration;
  * @author Gavin King
  */
 public interface Initializable {
+	// CLASS FULLY INSPECTED BY ME
 	public void initialize(Configuration cfg);
 }

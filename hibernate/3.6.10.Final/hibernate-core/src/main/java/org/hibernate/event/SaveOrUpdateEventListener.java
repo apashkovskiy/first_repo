@@ -34,6 +34,7 @@ import org.hibernate.HibernateException;
  * @author Steve Ebersole
  */
 public interface SaveOrUpdateEventListener extends Serializable {
+	// CLASS FULLY INSPECTED BY ME
 
     /** 
      * Handle the given update event.

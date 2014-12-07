@@ -31,6 +31,8 @@ package org.hibernate.event;
  * @author Steve Ebersole
  */
 public interface Destructible {
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Notification of {@link org.hibernate.SessionFactory} shutdown.
 	 */
