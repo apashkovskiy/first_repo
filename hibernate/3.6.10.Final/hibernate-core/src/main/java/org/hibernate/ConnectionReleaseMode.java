@@ -32,7 +32,10 @@ import java.io.Serializable;
  *
  * @author Steve Ebersole
  */
-public class ConnectionReleaseMode  implements Serializable {
+public class ConnectionReleaseMode implements Serializable {
+	private static final long serialVersionUID = 2290277293160222090L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 
 	/**
 	 * Indicates that JDBC connection should be aggressively released after each 
@@ -40,7 +43,7 @@ public class ConnectionReleaseMode  implements Serializable {
 	 * explicitly close all iterators and scrollable results. This mode may
 	 * only be used with a JTA datasource.
 	 */
-	public static final ConnectionReleaseMode AFTER_STATEMENT = new ConnectionReleaseMode( "after_statement" );
+	public static final ConnectionReleaseMode AFTER_STATEMENT = new ConnectionReleaseMode("after_statement");
 
 	/**
 	 * Indicates that JDBC connections should be released after each transaction 
@@ -49,13 +52,13 @@ public class ConnectionReleaseMode  implements Serializable {
 	 * <p/>
 	 * This is the default mode starting in 3.1; was previously {@link #ON_CLOSE}.
 	 */
-	public static final ConnectionReleaseMode AFTER_TRANSACTION = new ConnectionReleaseMode( "after_transaction" );
+	public static final ConnectionReleaseMode AFTER_TRANSACTION = new ConnectionReleaseMode("after_transaction");
 
 	/**
 	 * Indicates that connections should only be released when the Session is explicitly closed 
 	 * or disconnected; this is the legacy (Hibernate2 and pre-3.1) behavior.
 	 */
-	public static final ConnectionReleaseMode ON_CLOSE = new ConnectionReleaseMode( "on_close" );
+	public static final ConnectionReleaseMode ON_CLOSE = new ConnectionReleaseMode("on_close");
 
 
 	private String name;
@@ -82,19 +85,19 @@ public class ConnectionReleaseMode  implements Serializable {
 	 * @throws HibernateException Indicates the modeName param did not match any known modes.
 	 */
 	public static ConnectionReleaseMode parse(String modeName) throws HibernateException {
-		if ( AFTER_STATEMENT.name.equals( modeName ) ) {
+		if (AFTER_STATEMENT.name.equals(modeName)) {
 			return AFTER_STATEMENT;
 		}
-		else if ( AFTER_TRANSACTION.name.equals( modeName ) ) {
+		else if (AFTER_TRANSACTION.name.equals(modeName)) {
 			return AFTER_TRANSACTION;
 		}
-		else if ( ON_CLOSE.name.equals( modeName ) ) {
+		else if (ON_CLOSE.name.equals(modeName)) {
 			return ON_CLOSE;
 		}
-		throw new HibernateException( "could not determine appropriate connection release mode [" + modeName + "]" );
+		throw new HibernateException("could not determine appropriate connection release mode [" + modeName + "]");
 	}
 
 	private Object readResolve() {
-		return parse( name );
+		return parse(name);
 	}
 }

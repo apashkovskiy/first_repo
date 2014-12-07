@@ -40,7 +40,10 @@ import java.util.Map;
  * @author Gavin King
  */
 public final class FlushMode implements Serializable {
-	private static final Map INSTANCES = new HashMap();
+	private static final long serialVersionUID = -1167295388240762812L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
+	private static final Map<String, FlushMode> INSTANCES = new HashMap<String, FlushMode>();
 
 	private final int level;
 	private final String name;
@@ -61,14 +64,14 @@ public final class FlushMode implements Serializable {
 	 *
 	 * @deprecated use {@link #MANUAL} instead.
 	 */
-	public static final FlushMode NEVER = new FlushMode( 0, "NEVER" );
+	public static final FlushMode NEVER = new FlushMode(0, "NEVER");
 
 	/**
 	 * The {@link Session} is only ever flushed when {@link Session#flush}
 	 * is explicitly called by the application. This mode is very
 	 * efficient for read only transactions.
 	 */
-	public static final FlushMode MANUAL = new FlushMode( 0, "MANUAL" );
+	public static final FlushMode MANUAL = new FlushMode(0, "MANUAL");
 
 	/**
 	 * The {@link Session} is flushed when {@link Transaction#commit}
@@ -88,17 +91,17 @@ public final class FlushMode implements Serializable {
 	 * almost always unnecessary and inefficient.
 	 */
 	public static final FlushMode ALWAYS = new FlushMode(20, "ALWAYS");
-	
+
 	public boolean lessThan(FlushMode other) {
 		return this.level<other.level;
 	}
 
 	static {
-		INSTANCES.put( NEVER.name, NEVER );
-		INSTANCES.put( MANUAL.name, MANUAL );
-		INSTANCES.put( AUTO.name, AUTO );
-		INSTANCES.put( ALWAYS.name, ALWAYS );
-		INSTANCES.put( COMMIT.name, COMMIT );
+		INSTANCES.put(NEVER.name,  NEVER);
+		INSTANCES.put(MANUAL.name, MANUAL);
+		INSTANCES.put(AUTO.name,   AUTO);
+		INSTANCES.put(ALWAYS.name, ALWAYS);
+		INSTANCES.put(COMMIT.name, COMMIT);
 	}
 
 	public static boolean isManualFlushMode(FlushMode mode) {
@@ -106,10 +109,10 @@ public final class FlushMode implements Serializable {
 	}
 
 	private Object readResolve() {
-		return INSTANCES.get( name );
+		return INSTANCES.get(name);
 	}
 
 	public static FlushMode parse(String name) {
-		return ( FlushMode ) INSTANCES.get( name );
+		return (FlushMode) INSTANCES.get(name);
 	}
 }

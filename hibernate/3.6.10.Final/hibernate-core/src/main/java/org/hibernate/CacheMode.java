@@ -36,10 +36,13 @@ import java.util.Map;
  * @author Gavin King
  */
 public final class CacheMode implements Serializable {
+	private static final long serialVersionUID = 452304866949006397L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 	private final String name;
 	private final boolean isPutEnabled;
 	private final boolean isGetEnabled;
-	private static final Map INSTANCES = new HashMap();
+	private static final Map<String, CacheMode> INSTANCES = new HashMap<String, CacheMode>();
 
 	private CacheMode(String name, boolean isPutEnabled, boolean isGetEnabled) {
 		this.name=name;
@@ -55,6 +58,7 @@ public final class CacheMode implements Serializable {
 	public boolean isGetEnabled() {
 		return isGetEnabled;
 	}
+
 	/**
 	 * The session may read items from the cache, and add items to the cache
 	 */
@@ -84,18 +88,18 @@ public final class CacheMode implements Serializable {
 	public static final CacheMode REFRESH = new CacheMode("REFRESH", true, false);
 	
 	static {
-		INSTANCES.put( NORMAL.name, NORMAL );
-		INSTANCES.put( IGNORE.name, IGNORE );
-		INSTANCES.put( GET.name, GET );
-		INSTANCES.put( PUT.name, PUT );
-		INSTANCES.put( REFRESH.name, REFRESH );
+		INSTANCES.put(NORMAL.name,  NORMAL );
+		INSTANCES.put(IGNORE.name,  IGNORE );
+		INSTANCES.put(GET.name,     GET );
+		INSTANCES.put(PUT.name,     PUT );
+		INSTANCES.put(REFRESH.name, REFRESH );
 	}
 
 	private Object readResolve() {
-		return INSTANCES.get( name );
+		return INSTANCES.get(name);
 	}
 
 	public static CacheMode parse(String name) {
-		return ( CacheMode ) INSTANCES.get( name );
+		return (CacheMode) INSTANCES.get(name);
 	}
 }
