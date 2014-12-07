@@ -47,7 +47,8 @@ import javax.transaction.Synchronization;
  * @author Anton van Straaten
  */
 public interface Transaction {
-	
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Begin a new transaction.
 	 */
@@ -98,14 +99,14 @@ public interface Transaction {
 	 * @throws HibernateException
 	 */
 	public boolean wasCommitted() throws HibernateException;
-	
+
 	/**
 	 * Is this transaction still active?
 	 * <p/>
 	 * Again, this only returns information in relation to the
 	 * local transaction, not the actual underlying transaction.
 	 *
-	 * @return boolean Treu if this local transaction is still active.
+	 * @return boolean True if this local transaction is still active.
 	 */
 	public boolean isActive() throws HibernateException;
 
@@ -115,8 +116,7 @@ public interface Transaction {
 	 * @param synchronization The Synchronization callback to register.
 	 * @throws HibernateException
 	 */
-	public void registerSynchronization(Synchronization synchronization) 
-	throws HibernateException;
+	public void registerSynchronization(Synchronization synchronization) throws HibernateException;
 
 	/**
 	 * Set the transaction timeout for any transaction started by

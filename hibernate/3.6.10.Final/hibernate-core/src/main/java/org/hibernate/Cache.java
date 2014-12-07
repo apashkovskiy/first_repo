@@ -34,25 +34,24 @@ import java.io.Serializable;
  * @author Steve Ebersole
  */
 public interface Cache {
-	/**
-	 * Determine whether the cache contains data for the given entity "instance".
-	 * <p/>
-	 * The semantic here is whether the cache contains data visible for the
-	 * current call context.
-	 *
-	 * @param entityClass The entity class.
-	 * @param identifier The entity identifier
-	 *
-	 * @return True if the underlying cache contains corresponding data; false
-	 * otherwise.
-	 */
-	public boolean containsEntity(Class entityClass, Serializable identifier);
+	// CLASS FULLY INSPECTED BY ME
 
 	/**
 	 * Determine whether the cache contains data for the given entity "instance".
 	 * <p/>
-	 * The semantic here is whether the cache contains data visible for the
-	 * current call context.
+	 * The semantic here is whether the cache contains data visible for the current call context.
+	 *
+	 * @param entityClass The entity class.
+	 * @param identifier The entity identifier
+	 *
+	 * @return True if the underlying cache contains corresponding data; false otherwise.
+	 */
+	public boolean containsEntity(Class<?> entityClass, Serializable identifier);
+
+	/**
+	 * Determine whether the cache contains data for the given entity "instance".
+	 * <p/>
+	 * The semantic here is whether the cache contains data visible for the current call context.
 	 *
 	 * @param entityName The entity name.
 	 * @param identifier The entity identifier
@@ -61,13 +60,14 @@ public interface Cache {
 	 */
 	public boolean containsEntity(String entityName, Serializable identifier);
 
+
 	/**
 	 * Evicts the entity data for a particular entity "instance".
 	 *
 	 * @param entityClass The entity class.
 	 * @param identifier The entity identifier
 	 */
-	public void evictEntity(Class entityClass, Serializable identifier);
+	public void evictEntity(Class<?> entityClass, Serializable identifier);
 
 	/**
 	 * Evicts the entity data for a particular entity "instance".
@@ -77,17 +77,16 @@ public interface Cache {
 	 */
 	public void evictEntity(String entityName, Serializable identifier);
 
+
 	/**
-	 * Evicts all entity data from the given region (i.e. for all entities of
-	 * type).
+	 * Evicts all entity data from the given region (i.e. for all entities of type).
 	 *
 	 * @param entityClass The entity class.
 	 */
-	public void evictEntityRegion(Class entityClass);
+	public void evictEntityRegion(Class<?> entityClass);
 
 	/**
-	 * Evicts all entity data from the given region (i.e. for all entities of
-	 * type).
+	 * Evicts all entity data from the given region (i.e. for all entities of type).
 	 *
 	 * @param entityName The entity name.
 	 */
@@ -98,11 +97,11 @@ public interface Cache {
 	 */
 	public void evictEntityRegions();
 
+
 	/**
 	 * Determine whether the cache contains data for the given collection.
 	 * <p/>
-	 * The semantic here is whether the cache contains data visible for the
-	 * current call context.
+	 * The semantic here is whether the cache contains data visible for the current call context.
 	 *
 	 * @param role The name of the collection role (in form
 	 * [owner-entity-name].[collection-property-name]) whose regions should be
@@ -133,6 +132,7 @@ public interface Cache {
 	 * Evict data from all collection regions.
 	 */
 	public void evictCollectionRegions();
+
 
 	/**
 	 * Determine whether the cache contains data for the given query.

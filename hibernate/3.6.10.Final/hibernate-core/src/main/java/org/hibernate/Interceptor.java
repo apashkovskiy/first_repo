@@ -52,6 +52,8 @@ import org.hibernate.type.Type;
  * @author Gavin King
  */
 public interface Interceptor {
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Called just before an object is initialized. The interceptor may change the <tt>state</tt>, which will
 	 * be propagated to the persistent object. Note that when this method is called, <tt>entity</tt> will be
@@ -60,6 +62,7 @@ public interface Interceptor {
 	 * @return <tt>true</tt> if the user modified the <tt>state</tt> in any way.
 	 */
 	public boolean onLoad(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) throws CallbackException;
+
 	/**
 	 * Called when an object is detected to be dirty, during a flush. The interceptor may modify the detected
 	 * <tt>currentState</tt>, which will be propagated to both the database and the persistent object.
@@ -70,6 +73,7 @@ public interface Interceptor {
 	 * @return <tt>true</tt> if the user modified the <tt>currentState</tt> in any way.
 	 */
 	public boolean onFlushDirty(Object entity, Serializable id, Object[] currentState, Object[] previousState, String[] propertyNames, Type[] types) throws CallbackException;
+
 	/**
 	 * Called before an object is saved. The interceptor may modify the <tt>state</tt>, which will be used for
 	 * the SQL <tt>INSERT</tt> and propagated to the persistent object.
@@ -77,31 +81,38 @@ public interface Interceptor {
 	 * @return <tt>true</tt> if the user modified the <tt>state</tt> in any way.
 	 */
 	public boolean onSave(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) throws CallbackException;
+
 	/**
 	 *  Called before an object is deleted. It is not recommended that the interceptor modify the <tt>state</tt>.
 	 */
 	public void onDelete(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types) throws CallbackException;
+
 	/**
 	 * Called before a collection is (re)created.
 	 */
 	public void onCollectionRecreate(Object collection, Serializable key) throws CallbackException;
+
 	/**
 	 * Called before a collection is deleted.
 	 */
 	public void onCollectionRemove(Object collection, Serializable key) throws CallbackException;
+
 	/**
 	 * Called before a collection is updated.
 	 */
 	public void onCollectionUpdate(Object collection, Serializable key) throws CallbackException;
+
 	/**
 	 * Called before a flush
 	 */
-	public void preFlush(Iterator entities) throws CallbackException;
+	public void preFlush(Iterator<?> entities) throws CallbackException;
+
 	/**
 	 * Called after a flush that actually ends in execution of the SQL statements required to synchronize
 	 * in-memory state with the database.
 	 */
-	public void postFlush(Iterator entities) throws CallbackException;
+	public void postFlush(Iterator<?> entities) throws CallbackException;
+
 	/**
 	 * Called to distinguish between transient and detached entities. The return value determines the
 	 * state of the entity with respect to the current session.
@@ -115,6 +126,7 @@ public interface Interceptor {
 	 * @return Boolean or <tt>null</tt> to choose default behaviour
 	 */
 	public Boolean isTransient(Object entity);
+
 	/**
 	 * Called from <tt>flush()</tt>. The return value determines whether the entity is updated
 	 * <ul>
@@ -126,6 +138,7 @@ public interface Interceptor {
 	 * @return array of dirty property indices or <tt>null</tt> to choose default behaviour
 	 */
 	public int[] findDirty(Object entity, Serializable id, Object[] currentState, Object[] previousState, String[] propertyNames, Type[] types);
+
 	/**
 	 * Instantiate the entity class. Return <tt>null</tt> to indicate that Hibernate should use
 	 * the default constructor of the class. The identifier property of the returned instance
@@ -160,10 +173,12 @@ public interface Interceptor {
 	 * mechanism (CMT, for example).
 	 */
 	public void afterTransactionBegin(Transaction tx);
+
 	/**
 	 * Called before a transaction is committed (but not before rollback).
 	 */
 	public void beforeTransactionCompletion(Transaction tx);
+
 	/**
 	 * Called after a transaction is committed or rolled back.
 	 */

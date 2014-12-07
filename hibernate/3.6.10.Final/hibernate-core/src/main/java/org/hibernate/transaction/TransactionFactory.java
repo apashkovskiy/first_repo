@@ -47,6 +47,7 @@ import org.hibernate.jdbc.JDBCContext;
  * @author Gavin King
  */
 public interface TransactionFactory {
+	// CLASS FULLY INSPECTED BY ME
 
 	/**
 	 * Callback mechanism; a context is always a {@link org.hibernate.Session}

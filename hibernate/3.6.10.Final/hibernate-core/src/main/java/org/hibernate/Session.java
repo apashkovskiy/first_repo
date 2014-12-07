@@ -1015,8 +1015,8 @@ public interface Session extends Serializable {
 	 * Contains locking details (LockMode, Timeout and Scope).
 	 */
 	public interface LockRequest {
-		static final int PESSIMISTIC_NO_WAIT = 0;
-		static final int PESSIMISTIC_WAIT_FOREVER = -1;
+		int PESSIMISTIC_NO_WAIT = 0;
+		int PESSIMISTIC_WAIT_FOREVER = -1;
 
 		/**
 		 * Get the lock mode.

@@ -35,6 +35,7 @@ import java.util.Collection;
  * @author Steve Ebersole
  */
 public interface Filter {
+	// CLASS FULLY INSPECTED BY ME
 
 	/**
 	 * Get the name of this filter.
@@ -69,7 +70,7 @@ public interface Filter {
 	 * @param values The values to be expanded into an SQL IN list.
 	 * @return This FilterImpl instance (for method chaining).
 	 */
-	public Filter setParameterList(String name, Collection values);
+	public Filter setParameterList(String name, Collection<?> values);
 
 	/**
 	 * Set the named parameter's value list for this filter.  Used

@@ -156,7 +156,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 *
 	 * @throws HibernateException Generally null is returned instead of throwing.
 	 */
-	public ClassMetadata getClassMetadata(Class entityClass);
+	public ClassMetadata getClassMetadata(Class<?> entityClass);
 
 	/**
 	 * Retrieve the {@link ClassMetadata} associated with the given entity class.
@@ -193,7 +193,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 *
 	 * @since 3.0 changed key from {@link Class} to {@link String}.
 	 */
-	public Map<String,ClassMetadata> getAllClassMetadata();
+	public Map<String, ClassMetadata> getAllClassMetadata();
 
 	/**
 	 * Get the {@link CollectionMetadata} for all mapped collections
@@ -202,7 +202,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 *
 	 * @throws HibernateException Generally empty map is returned instead of throwing.
 	 */
-	public Map getAllCollectionMetadata();
+	public Map<String, CollectionMetadata> getAllCollectionMetadata();
 
 	/**
 	 * Retrieve the statistics fopr this factory.
@@ -253,7 +253,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 * @deprecated Use {@link Cache#evictEntityRegion(Class)} accessed through
 	 * {@link #getCache()} instead.
 	 */
-	public void evict(Class persistentClass) throws HibernateException;
+	public void evict(Class<?> persistentClass) throws HibernateException;
 
 	/**
 	 * Evict an entry from the second-level  cache. This method occurs outside
@@ -270,7 +270,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 * @deprecated Use {@link Cache#containsEntity(Class, Serializable)} accessed through
 	 * {@link #getCache()} instead.
 	 */
-	public void evict(Class persistentClass, Serializable id) throws HibernateException;
+	public void evict(Class<?> persistentClass, Serializable id) throws HibernateException;
 
 	/**
 	 * Evict all entries from the second-level cache. This method occurs outside
@@ -367,7 +367,7 @@ public interface SessionFactory extends Referenceable, Serializable {
 	 *
 	 * @return The set of filter names.
 	 */
-	public Set getDefinedFilterNames();
+	public Set<String> getDefinedFilterNames();
 
 	/**
 	 * Obtain the definition of a filter by name.
