@@ -30,6 +30,8 @@ package org.hibernate.event;
  * @author Steve Ebersole
  */
 public class DeleteEvent extends AbstractEvent {
+	private static final long serialVersionUID = -3375156579442461807L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
 	private Object object;
 	private String entityName;
@@ -44,9 +46,7 @@ public class DeleteEvent extends AbstractEvent {
 	public DeleteEvent(Object object, EventSource source) {
 		super(source);
 		if (object == null) {
-			throw new IllegalArgumentException(
-					"attempt to create delete event with null entity"
-				);
+			throw new IllegalArgumentException("attempt to create delete event with null entity");
 		}
 		this.object = object;
 	}
@@ -74,7 +74,7 @@ public class DeleteEvent extends AbstractEvent {
 	public String getEntityName() {
 		return entityName;
 	}
-	
+
 	public boolean isCascadeDeleteEnabled() {
 		return cascadeDeleteEnabled;
 	}

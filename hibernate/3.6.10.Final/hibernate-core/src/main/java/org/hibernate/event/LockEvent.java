@@ -33,10 +33,14 @@ import org.hibernate.LockOptions;
  * @author Steve Ebersole
  */
 public class LockEvent extends AbstractEvent {
+	private static final long serialVersionUID = -6354873931017059508L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
 	private Object object;
 	private LockOptions lockOptions;
 	private String entityName;
+
+
 
 	public LockEvent(String entityName, Object original, LockMode lockMode, EventSource source) {
 		this(original, lockMode, source);
@@ -59,6 +63,8 @@ public class LockEvent extends AbstractEvent {
 		this.object = object;
 		this.lockOptions = lockOptions;
 	}
+
+
 
 	public Object getObject() {
 		return object;

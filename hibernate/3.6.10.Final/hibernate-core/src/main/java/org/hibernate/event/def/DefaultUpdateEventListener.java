@@ -28,7 +28,6 @@ import java.io.Serializable;
 
 import org.hibernate.HibernateException;
 import org.hibernate.ObjectDeletedException;
-import org.hibernate.EntityMode;
 import org.hibernate.engine.EntityEntry;
 import org.hibernate.engine.SessionImplementor;
 import org.hibernate.engine.Status;

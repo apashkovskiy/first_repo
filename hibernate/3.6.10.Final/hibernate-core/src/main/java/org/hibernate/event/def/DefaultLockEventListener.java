@@ -33,10 +33,10 @@ import org.hibernate.engine.Cascade;
 import org.hibernate.engine.CascadingAction;
 import org.hibernate.engine.EntityEntry;
 import org.hibernate.engine.ForeignKeys;
+import org.hibernate.engine.SessionImplementor;
 import org.hibernate.event.EventSource;
 import org.hibernate.event.LockEvent;
 import org.hibernate.event.LockEventListener;
-import org.hibernate.engine.SessionImplementor;
 import org.hibernate.persister.entity.EntityPersister;
 
 /**
@@ -46,37 +46,37 @@ import org.hibernate.persister.entity.EntityPersister;
  * @author Steve Ebersole
  */
 public class DefaultLockEventListener extends AbstractLockUpgradeEventListener implements LockEventListener {
+	private static final long serialVersionUID = 7642697627212011580L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 
 	/** Handle the given lock event.
 	 *
 	 * @param event The lock event to be handled.
 	 * @throws HibernateException
 	 */
+	@Override
 	public void onLock(LockEvent event) throws HibernateException {
-
-		if ( event.getObject() == null ) {
-			throw new NullPointerException( "attempted to lock null" );
+		if (event.getObject() == null) {
+			throw new NullPointerException("attempted to lock null");
 		}
 
-		if ( event.getLockMode() == LockMode.WRITE ) {
-			throw new HibernateException( "Invalid lock mode for lock()" );
+		if (event.getLockMode() == LockMode.WRITE) {
+			throw new HibernateException("Invalid lock mode for lock()");
 		}
 
 		SessionImplementor source = event.getSession();
 		
-		Object entity = source.getPersistenceContext().unproxyAndReassociate( event.getObject() );
+		Object entity = source.getPersistenceContext().unproxyAndReassociate(event.getObject());
 		//TODO: if object was an uninitialized proxy, this is inefficient,
 		//      resulting in two SQL selects
 		
 		EntityEntry entry = source.getPersistenceContext().getEntry(entity);
-		if (entry==null) {
-			final EntityPersister persister = source.getEntityPersister( event.getEntityName(), entity );
-			final Serializable id = persister.getIdentifier( entity, source );
-			if ( !ForeignKeys.isNotTransient( event.getEntityName(), entity, Boolean.FALSE, source ) ) {
-				throw new TransientObjectException(
-						"cannot lock an unsaved transient instance: " +
-						persister.getEntityName()
-				);
+		if (entry == null) {
+			final EntityPersister persister = source.getEntityPersister(event.getEntityName(), entity);
+			final Serializable id = persister.getIdentifier(entity, source);
+			if (!ForeignKeys.isNotTransient(event.getEntityName(), entity, Boolean.FALSE, source)) {
+				throw new TransientObjectException("cannot lock an unsaved transient instance: " + persister.getEntityName());
 			}
 
 			entry = reassociate(event, entity, id, persister);
@@ -85,15 +85,15 @@ public class DefaultLockEventListener extends AbstractLockUpgradeEventListener i
 
 		upgradeLock( entity, entry, event.getLockOptions(), event.getSession() );
 	}
-	
+
+
 	private void cascadeOnLock(LockEvent event, EntityPersister persister, Object entity) {
 		EventSource source = event.getSession();
 		source.getPersistenceContext().incrementCascadeLevel();
 		try {
 			new Cascade(CascadingAction.LOCK, Cascade.AFTER_LOCK, source)
-					.cascade( persister, entity, event.getLockOptions() );
-		}
-		finally {
+					.cascade(persister, entity, event.getLockOptions());
+		} finally {
 			source.getPersistenceContext().decrementCascadeLevel();
 		}
 	}

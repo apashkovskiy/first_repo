@@ -33,6 +33,8 @@ import java.io.Serializable;
  * @author Steve Ebersole
  */
 public abstract class AbstractEvent implements Serializable {
+	private static final long serialVersionUID = 4565543619828489646L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
 	private final EventSource session;
 

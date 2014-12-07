@@ -34,6 +34,8 @@ import org.hibernate.engine.EntityEntry;
  * @author Steve Ebersole
  */
 public class SaveOrUpdateEvent extends AbstractEvent {
+	private static final long serialVersionUID = -5364011687512678450L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
 	private Object object;
 	private Serializable requestedId;
@@ -41,6 +43,7 @@ public class SaveOrUpdateEvent extends AbstractEvent {
 	private Object entity;
 	private EntityEntry entry;
 	private Serializable resultId;
+
 
 	public SaveOrUpdateEvent(String entityName, Object original, EventSource source) {
 		this(original, source);
@@ -50,22 +53,19 @@ public class SaveOrUpdateEvent extends AbstractEvent {
 	public SaveOrUpdateEvent(String entityName, Object original, Serializable id, EventSource source) {
 		this(entityName, original, source);
 		this.requestedId = id;
-		if ( requestedId == null ) {
-			throw new IllegalArgumentException(
-					"attempt to create saveOrUpdate event with null identifier"
-				);
+		if (requestedId == null) {
+			throw new IllegalArgumentException("attempt to create saveOrUpdate event with null identifier");
 		}
 	}
 
 	public SaveOrUpdateEvent(Object object, EventSource source) {
 		super(source);
-		if ( object == null ) {
-			throw new IllegalArgumentException(
-					"attempt to create saveOrUpdate event with null entity"
-				);
+		if (object == null) {
+			throw new IllegalArgumentException("attempt to create saveOrUpdate event with null entity");
 		}
 		this.object = object;
 	}
+
 
 	public Object getObject() {
 		return object;

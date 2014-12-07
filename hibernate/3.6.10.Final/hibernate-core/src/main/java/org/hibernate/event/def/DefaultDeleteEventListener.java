@@ -26,9 +26,6 @@ package org.hibernate.event.def;
 import java.io.Serializable;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.hibernate.CacheMode;
 import org.hibernate.HibernateException;
 import org.hibernate.LockMode;
@@ -51,6 +48,8 @@ import org.hibernate.pretty.MessageHelper;
 import org.hibernate.type.Type;
 import org.hibernate.type.TypeHelper;
 import org.hibernate.util.IdentitySet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Defines the default delete event listener used by hibernate for deleting entities
@@ -59,8 +58,10 @@ import org.hibernate.util.IdentitySet;
  * @author Steve Ebersole
  */
 public class DefaultDeleteEventListener implements DeleteEventListener {
+	private static final long serialVersionUID = -687553162531083525L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
 
-	private static final Logger log = LoggerFactory.getLogger( DefaultDeleteEventListener.class );
+	private static final Logger log = LoggerFactory.getLogger(DefaultDeleteEventListener.class);
 
 	/**
 	 * Handle the given delete event.
@@ -69,8 +70,9 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 	 *
 	 * @throws HibernateException
 	 */
+	@Override
 	public void onDelete(DeleteEvent event) throws HibernateException {
-		onDelete( event, new IdentitySet() );
+		onDelete(event, new IdentitySet<Object>());
 	}
 
 	/**
@@ -81,66 +83,62 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 	 *
 	 * @throws HibernateException
 	 */
-	public void onDelete(DeleteEvent event, Set transientEntities) throws HibernateException {
-
+	@Override
+	public void onDelete(DeleteEvent event, Set<Object> transientEntities) throws HibernateException {
 		final EventSource source = event.getSession();
 
 		final PersistenceContext persistenceContext = source.getPersistenceContext();
-		Object entity = persistenceContext.unproxyAndReassociate( event.getObject() );
+		Object entity = persistenceContext.unproxyAndReassociate(event.getObject());
 
-		EntityEntry entityEntry = persistenceContext.getEntry( entity );
+		EntityEntry entityEntry = persistenceContext.getEntry(entity);
 		final EntityPersister persister;
 		final Serializable id;
 		final Object version;
 
-		if ( entityEntry == null ) {
-			log.trace( "entity was not persistent in delete processing" );
+		if (entityEntry == null) {
+			log.trace("entity was not persistent in delete processing");
 
-			persister = source.getEntityPersister( event.getEntityName(), entity );
+			persister = source.getEntityPersister(event.getEntityName(), entity);
 
-			if ( ForeignKeys.isTransient( persister.getEntityName(), entity, null, source ) ) {
-				deleteTransientEntity( source, entity, event.isCascadeDeleteEnabled(), persister, transientEntities );
+			if (ForeignKeys.isTransient(persister.getEntityName(), entity, null, source)) {
+				deleteTransientEntity(source, entity, event.isCascadeDeleteEnabled(), persister, transientEntities);
 				// EARLY EXIT!!!
 				return;
-			}
-			else {
-				performDetachedEntityDeletionCheck( event );
+			} else {
+				performDetachedEntityDeletionCheck(event);
 			}
 
-			id = persister.getIdentifier( entity, source );
+			id = persister.getIdentifier(entity, source);
 
 			if ( id == null ) {
-				throw new TransientObjectException(
-						"the detached instance passed to delete() had a null identifier"
-				);
+				throw new TransientObjectException("the detached instance passed to delete() had a null identifier");
 			}
 
-			EntityKey key = new EntityKey( id, persister, source.getEntityMode() );
+			EntityKey key = new EntityKey(id, persister, source.getEntityMode());
 
-			persistenceContext.checkUniqueness( key, entity );
+			persistenceContext.checkUniqueness(key, entity);
 
-			new OnUpdateVisitor( source, id, entity ).process( entity, persister );
+			new OnUpdateVisitor(source, id, entity).process(entity, persister);
 
-			version = persister.getVersion( entity, source.getEntityMode() );
+			version = persister.getVersion(entity, source.getEntityMode());
 
 			entityEntry = persistenceContext.addEntity(
-					entity,
-					( persister.isMutable() ? Status.MANAGED : Status.READ_ONLY ),
-					persister.getPropertyValues( entity, source.getEntityMode() ),
-					key,
-					version,
-					LockMode.NONE,
-					true,
-					persister,
-					false,
-					false
+				entity, 
+				(persister.isMutable() ? Status.MANAGED : Status.READ_ONLY), 
+				persister.getPropertyValues(entity, source.getEntityMode()), 
+				key, 
+				version, 
+				LockMode.NONE, 
+				true, 
+				persister, 
+				false, 
+				false
 			);
-		}
-		else {
-			log.trace( "deleting a persistent instance" );
+		} else {
+			log.trace("deleting a persistent instance");
 
-			if ( entityEntry.getStatus() == Status.DELETED || entityEntry.getStatus() == Status.GONE ) {
-				log.trace( "object was already deleted" );
+			if (entityEntry.getStatus() == Status.DELETED || entityEntry.getStatus() == Status.GONE) {
+				log.trace("object was already deleted");
 				return;
 			}
 			persister = entityEntry.getPersister();
@@ -155,14 +153,14 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 				);
 		}*/
 
-		if ( invokeDeleteLifecycle( source, entity, persister ) ) {
+		if (invokeDeleteLifecycle(source, entity, persister)) {
 			return;
 		}
 
-		deleteEntity( source, entity, entityEntry, event.isCascadeDeleteEnabled(), persister, transientEntities );
+		deleteEntity(source, entity, entityEntry, event.isCascadeDeleteEnabled(), persister, transientEntities);
 
-		if ( source.getFactory().getSettings().isIdentifierRollbackEnabled() ) {
-			persister.resetIdentifier( entity, id, version, source );
+		if (source.getFactory().getSettings().isIdentifierRollbackEnabled()) {
+			persister.resetIdentifier(entity, id, version, source);
 		}
 	}
 
@@ -199,15 +197,15 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 			Object entity,
 			boolean cascadeDeleteEnabled,
 			EntityPersister persister,
-			Set transientEntities) {
-		log.info( "handling transient entity in delete processing" );
-		if ( transientEntities.contains( entity ) ) {
-			log.trace( "already handled transient entity; skipping" );
+			Set<Object> transientEntities) {
+		log.info("handling transient entity in delete processing");
+		if (transientEntities.contains(entity)) {
+			log.trace("already handled transient entity; skipping");
 			return;
 		}
-		transientEntities.add( entity );
-		cascadeBeforeDelete( session, persister, entity, null, transientEntities );
-		cascadeAfterDelete( session, persister, entity, transientEntities );
+		transientEntities.add(entity);
+		cascadeBeforeDelete(session, persister, entity, null, transientEntities);
+		cascadeAfterDelete(session, persister, entity, transientEntities);
 	}
 
 	/**
@@ -228,13 +226,10 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 			final EntityEntry entityEntry,
 			final boolean isCascadeDeleteEnabled,
 			final EntityPersister persister,
-			final Set transientEntities) {
+			final Set<Object> transientEntities) {
 
-		if ( log.isTraceEnabled() ) {
-			log.trace(
-					"deleting " +
-							MessageHelper.infoString( persister, entityEntry.getId(), session.getFactory() )
-			);
+		if (log.isTraceEnabled()) {
+			log.trace("deleting " + MessageHelper.infoString(persister, entityEntry.getId(), session.getFactory()));
 		}
 
 		final PersistenceContext persistenceContext = session.getPersistenceContext();
@@ -242,46 +237,45 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 		final Object version = entityEntry.getVersion();
 
 		final Object[] currentState;
-		if ( entityEntry.getLoadedState() == null ) { //ie. the entity came in from update()
+		if (entityEntry.getLoadedState() == null) { //ie. the entity came in from update()
 			currentState = persister.getPropertyValues( entity, session.getEntityMode() );
-		}
-		else {
+		} else {
 			currentState = entityEntry.getLoadedState();
 		}
 
-		final Object[] deletedState = createDeletedState( persister, currentState, session );
-		entityEntry.setDeletedState( deletedState );
+		final Object[] deletedState = createDeletedState(persister, currentState, session);
+		entityEntry.setDeletedState(deletedState);
 
 		session.getInterceptor().onDelete(
-				entity,
-				entityEntry.getId(),
-				deletedState,
-				persister.getPropertyNames(),
-				propTypes
+			entity, 
+			entityEntry.getId(), 
+			deletedState, 
+			persister.getPropertyNames(), 
+			propTypes
 		);
 
 		// before any callbacks, etc, so subdeletions see that this deletion happened first
-		persistenceContext.setEntryStatus( entityEntry, Status.DELETED );
-		EntityKey key = new EntityKey( entityEntry.getId(), persister, session.getEntityMode() );
+		persistenceContext.setEntryStatus(entityEntry, Status.DELETED);
+		EntityKey key = new EntityKey(entityEntry.getId(), persister, session.getEntityMode());
 
-		cascadeBeforeDelete( session, persister, entity, entityEntry, transientEntities );
+		cascadeBeforeDelete(session, persister, entity, entityEntry, transientEntities);
 
-		new ForeignKeys.Nullifier( entity, true, false, session )
-				.nullifyTransientReferences( entityEntry.getDeletedState(), propTypes );
-		new Nullability( session ).checkNullability( entityEntry.getDeletedState(), persister, true );
-		persistenceContext.getNullifiableEntityKeys().add( key );
+		new ForeignKeys.Nullifier(entity, true, false, session)
+			.nullifyTransientReferences(entityEntry.getDeletedState(), propTypes);
+		new Nullability(session).checkNullability(entityEntry.getDeletedState(), persister, true);
+		persistenceContext.getNullifiableEntityKeys().add(key); // FIXME pipan
 
 		// Ensures that containing deletions happen before sub-deletions
 		session.getActionQueue().addAction(
-				new EntityDeleteAction(
-						entityEntry.getId(),
-						deletedState,
-						version,
-						entity,
-						persister,
-						isCascadeDeleteEnabled,
-						session
-				)
+			new EntityDeleteAction(
+					entityEntry.getId(), 
+					deletedState, 
+					version, 
+					entity, 
+					persister, 
+					isCascadeDeleteEnabled, 
+					session
+			)
 		);
 
 		cascadeAfterDelete( session, persister, entity, transientEntities );
@@ -297,16 +291,16 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 		final Object[] deletedState = new Object[propTypes.length];
 //		TypeFactory.deepCopy( currentState, propTypes, persister.getPropertyUpdateability(), deletedState, session );
 		boolean[] copyability = new boolean[propTypes.length];
-		java.util.Arrays.fill( copyability, true );
-		TypeHelper.deepCopy( currentState, propTypes, copyability, deletedState, session );
+		java.util.Arrays.fill(copyability, true);
+		TypeHelper.deepCopy(currentState, propTypes, copyability, deletedState, session);
 		return deletedState;
 	}
 
 	protected boolean invokeDeleteLifecycle(EventSource session, Object entity, EntityPersister persister) {
-		if ( persister.implementsLifecycle( session.getEntityMode() ) ) {
-			log.debug( "calling onDelete()" );
-			if ( ( ( Lifecycle ) entity ).onDelete( session ) ) {
-				log.debug( "deletion vetoed by onDelete()" );
+		if (persister.implementsLifecycle(session.getEntityMode())) {
+			log.debug("calling onDelete()");
+			if (((Lifecycle) entity).onDelete(session)) {
+				log.debug("deletion vetoed by onDelete()");
 				return true;
 			}
 		}
@@ -318,19 +312,18 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 			EntityPersister persister,
 			Object entity,
 			EntityEntry entityEntry,
-			Set transientEntities) throws HibernateException {
+			Set<Object> transientEntities) throws HibernateException {
 
 		CacheMode cacheMode = session.getCacheMode();
-		session.setCacheMode( CacheMode.GET );
+		session.setCacheMode(CacheMode.GET);
 		session.getPersistenceContext().incrementCascadeLevel();
 		try {
 			// cascade-delete to collections BEFORE the collection owner is deleted
-			new Cascade( CascadingAction.DELETE, Cascade.AFTER_INSERT_BEFORE_DELETE, session )
-					.cascade( persister, entity, transientEntities );
-		}
-		finally {
+			new Cascade(CascadingAction.DELETE, Cascade.AFTER_INSERT_BEFORE_DELETE, session)
+					.cascade(persister, entity, transientEntities);
+		} finally {
 			session.getPersistenceContext().decrementCascadeLevel();
-			session.setCacheMode( cacheMode );
+			session.setCacheMode(cacheMode);
 		}
 	}
 
@@ -338,19 +331,18 @@ public class DefaultDeleteEventListener implements DeleteEventListener {
 			EventSource session,
 			EntityPersister persister,
 			Object entity,
-			Set transientEntities) throws HibernateException {
+			Set<Object> transientEntities) throws HibernateException {
 
 		CacheMode cacheMode = session.getCacheMode();
-		session.setCacheMode( CacheMode.GET );
+		session.setCacheMode(CacheMode.GET);
 		session.getPersistenceContext().incrementCascadeLevel();
 		try {
 			// cascade-delete to many-to-one AFTER the parent was deleted
-			new Cascade( CascadingAction.DELETE, Cascade.BEFORE_INSERT_AFTER_DELETE, session )
+			new Cascade(CascadingAction.DELETE, Cascade.BEFORE_INSERT_AFTER_DELETE, session)
 					.cascade( persister, entity, transientEntities );
-		}
-		finally {
+		} finally {
 			session.getPersistenceContext().decrementCascadeLevel();
-			session.setCacheMode( cacheMode );
+			session.setCacheMode(cacheMode);
 		}
 	}
 
