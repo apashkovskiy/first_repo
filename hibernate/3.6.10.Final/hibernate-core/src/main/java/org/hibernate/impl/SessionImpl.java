@@ -24,19 +24,18 @@
  */
 package org.hibernate.impl;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Reader;
 import java.io.Serializable;
-import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,19 +45,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.hibernate.CacheMode;
 import org.hibernate.ConnectionReleaseMode;
 import org.hibernate.Criteria;
 import org.hibernate.EntityMode;
+import org.hibernate.EntityNameResolver;
 import org.hibernate.Filter;
 import org.hibernate.FlushMode;
 import org.hibernate.HibernateException;
 import org.hibernate.Interceptor;
 import org.hibernate.LobHelper;
 import org.hibernate.LockMode;
+import org.hibernate.LockOptions;
 import org.hibernate.MappingException;
 import org.hibernate.ObjectDeletedException;
 import org.hibernate.Query;
@@ -73,21 +71,19 @@ import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.TransientObjectException;
 import org.hibernate.TypeHelper;
-import org.hibernate.UnresolvableObjectException;
 import org.hibernate.UnknownProfileException;
-import org.hibernate.EntityNameResolver;
-import org.hibernate.LockOptions;
+import org.hibernate.UnresolvableObjectException;
 import org.hibernate.collection.PersistentCollection;
 import org.hibernate.engine.ActionQueue;
 import org.hibernate.engine.CollectionEntry;
 import org.hibernate.engine.EntityEntry;
 import org.hibernate.engine.EntityKey;
+import org.hibernate.engine.LoadQueryInfluencers;
 import org.hibernate.engine.NonFlushedChanges;
 import org.hibernate.engine.PersistenceContext;
 import org.hibernate.engine.QueryParameters;
 import org.hibernate.engine.StatefulPersistenceContext;
 import org.hibernate.engine.Status;
-import org.hibernate.engine.LoadQueryInfluencers;
 import org.hibernate.engine.jdbc.LobCreationContext;
 import org.hibernate.engine.jdbc.LobCreator;
 import org.hibernate.engine.query.FilterQueryPlan;
@@ -138,11 +134,13 @@ import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.proxy.LazyInitializer;
 import org.hibernate.stat.SessionStatistics;
 import org.hibernate.stat.SessionStatisticsImpl;
-import org.hibernate.type.Type;
 import org.hibernate.type.SerializationException;
+import org.hibernate.type.Type;
 import org.hibernate.util.ArrayHelper;
 import org.hibernate.util.CollectionHelper;
 import org.hibernate.util.StringHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -155,6 +153,8 @@ import org.hibernate.util.StringHelper;
  */
 public final class SessionImpl extends AbstractSessionImpl 
 		implements EventSource, org.hibernate.classic.Session, JDBCContext.Context, LobCreationContext {
+	private static final long serialVersionUID = -6930199179795766128L;
+
 
 	// todo : need to find a clean way to handle the "event source" role
 	// a seperate classs responsible for generating/dispatching events just duplicates most of the Session methods...
@@ -162,32 +162,31 @@ public final class SessionImpl extends AbstractSessionImpl
 
 	private static final Logger log = LoggerFactory.getLogger(SessionImpl.class);
 
-	private transient EntityMode entityMode = EntityMode.POJO;
 	private transient boolean autoClear; //for EJB3
-	
 	private transient long timestamp;
+	private transient int dontFlushFromFind = 0;
+	private transient boolean flushBeforeCompletionEnabled;
+	private transient boolean autoCloseSessionEnabled;
+
+	private transient EntityMode entityMode = EntityMode.POJO;
 	private transient FlushMode flushMode = FlushMode.AUTO;
 	private transient CacheMode cacheMode = CacheMode.NORMAL;
+	private transient ConnectionReleaseMode connectionReleaseMode;
 
 	private transient Interceptor interceptor;
-
-	private transient int dontFlushFromFind = 0;
+	private transient LoadQueryInfluencers loadQueryInfluencers;
 
 	private transient ActionQueue actionQueue;
 	private transient StatefulPersistenceContext persistenceContext;
 	private transient JDBCContext jdbcContext;
 	private transient EventListeners listeners;
 
-	private transient boolean flushBeforeCompletionEnabled;
-	private transient boolean autoCloseSessionEnabled;
-	private transient ConnectionReleaseMode connectionReleaseMode;
-
-	private transient LoadQueryInfluencers loadQueryInfluencers;
-
 	private transient Session rootSession;
-	private transient Map childSessionsByEntityMode;
+	private transient Map<EntityMode, SessionImpl> childSessionsByEntityMode;
 
 	private transient EntityNameResolver entityNameResolver = new CoordinatingEntityNameResolver();
+
+
 
 	/**
 	 * Constructor used in building "child sessions".
@@ -267,28 +266,27 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 	public Session getSession(EntityMode entityMode) {
-		if ( this.entityMode == entityMode ) {
+		if (this.entityMode == entityMode) {
 			return this;
 		}
 
-		if ( rootSession != null ) {
-			return rootSession.getSession( entityMode );
+		if (rootSession != null) {
+			return rootSession.getSession(entityMode);
 		}
 
 		errorIfClosed();
 		checkTransactionSynchStatus();
 
 		SessionImpl rtn = null;
-		if ( childSessionsByEntityMode == null ) {
-			childSessionsByEntityMode = new HashMap();
-		}
-		else {
-			rtn = (SessionImpl) childSessionsByEntityMode.get( entityMode );
+		if (childSessionsByEntityMode == null) {
+			childSessionsByEntityMode = new HashMap<EntityMode, SessionImpl>();
+		} else {
+			rtn = childSessionsByEntityMode.get(entityMode);
 		}
 
-		if ( rtn == null ) {
-			rtn = new SessionImpl( this, entityMode );
-			childSessionsByEntityMode.put( entityMode, rtn );
+		if (rtn == null) {
+			rtn = new SessionImpl(this, entityMode);
+			childSessionsByEntityMode.put(entityMode, rtn);
 		}
 
 		return rtn;
@@ -327,26 +325,21 @@ public final class SessionImpl extends AbstractSessionImpl
 
 		try {
 			try {
-				if ( childSessionsByEntityMode != null ) {
-					Iterator childSessions = childSessionsByEntityMode.values().iterator();
-					while ( childSessions.hasNext() ) {
-						final SessionImpl child = ( SessionImpl ) childSessions.next();
-						child.close();
+				if (childSessionsByEntityMode != null) {
+					for (SessionImpl childSession : childSessionsByEntityMode.values()) {
+						childSession.close();
 					}
 				}
-			}
-			catch( Throwable t ) {
+			} catch(Throwable t) {
 				// just ignore
 			}
 
-			if ( rootSession == null ) {
+			if (rootSession == null) {
 				return jdbcContext.getConnectionManager().close();
-			}
-			else {
+			} else {
 				return null;
 			}
-		}
-		finally {
+		} finally {
 			setClosed();
 			cleanup();
 		}
@@ -375,17 +368,16 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 	public void managedFlush() {
-		if ( isClosed() ) {
-			log.trace( "skipping auto-flush due to session closed" );
+		if (isClosed()) {
+			log.trace("skipping auto-flush due to session closed");
 			return;
 		}
 		log.trace("automatically flushing session");
 		flush();
 		
-		if ( childSessionsByEntityMode != null ) {
-			Iterator iter = childSessionsByEntityMode.values().iterator();
-			while ( iter.hasNext() ) {
-				( (Session) iter.next() ).flush();
+		if (childSessionsByEntityMode != null) {
+			for (SessionImpl childSession : childSessionsByEntityMode.values()) {
+				childSession.flush();
 			}
 		}
 	}
@@ -398,11 +390,10 @@ public final class SessionImpl extends AbstractSessionImpl
 	public NonFlushedChanges getNonFlushedChanges() throws HibernateException {
 		errorIfClosed();
 		checkTransactionSynchStatus();
-		NonFlushedChanges nonFlushedChanges = new NonFlushedChangesImpl( this );
-		if ( childSessionsByEntityMode != null ) {
-			Iterator it = childSessionsByEntityMode.values().iterator();
-			while ( it.hasNext() ) {
-				nonFlushedChanges.extractFromSession( ( EventSource ) it.next() );
+		NonFlushedChanges nonFlushedChanges = new NonFlushedChangesImpl(this);
+		if (childSessionsByEntityMode != null) {
+			for (SessionImpl childSession : childSessionsByEntityMode.values()) {
+				nonFlushedChanges.extractFromSession(childSession);
 			}
 		}
 		return nonFlushedChanges;
@@ -421,9 +412,9 @@ public final class SessionImpl extends AbstractSessionImpl
 		checkTransactionSynchStatus();
 		replacePersistenceContext( ( ( NonFlushedChangesImpl ) nonFlushedChanges ).getPersistenceContext( entityMode) );
 		replaceActionQueue( ( ( NonFlushedChangesImpl ) nonFlushedChanges ).getActionQueue( entityMode ) );
-		if ( childSessionsByEntityMode != null ) {
-			for ( Iterator it = childSessionsByEntityMode.values().iterator(); it.hasNext(); ) {
-				( ( SessionImpl ) it.next() ).applyNonFlushedChanges( nonFlushedChanges );
+		if (childSessionsByEntityMode != null) {
+			for (SessionImpl childSession : childSessionsByEntityMode.values()) {
+				childSession.applyNonFlushedChanges(nonFlushedChanges);
 			}
 		}
 	}
@@ -667,7 +658,7 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 
-	// saveOrUpdate() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// saveOrUpdate() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TODO NEXT
 
 	public void saveOrUpdate(Object object) throws HibernateException {
 		saveOrUpdate(null, object);
@@ -687,7 +678,7 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 
-	// save() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// save() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ TODO NEXT 
 
 	public void save(Object obj, Serializable id) throws HibernateException {
 		save(null, obj, id);
@@ -716,20 +707,24 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 
-	// update() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// update() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ OK
 
+	@Override
 	public void update(Object obj) throws HibernateException {
 		update(null, obj);
 	}
 
+	@Override
 	public void update(Object obj, Serializable id) throws HibernateException {
 		update(null, obj, id);
 	}
 
+	@Override
 	public void update(String entityName, Object object) throws HibernateException {
-		fireUpdate( new SaveOrUpdateEvent(entityName, object, this) );
+		fireUpdate(new SaveOrUpdateEvent(entityName, object, this));
 	}
 
+	@Override
 	public void update(String entityName, Object object, Serializable id) throws HibernateException {
 		fireUpdate(new SaveOrUpdateEvent(entityName, object, id, this));
 	}
@@ -737,41 +732,42 @@ public final class SessionImpl extends AbstractSessionImpl
 	private void fireUpdate(SaveOrUpdateEvent event) {
 		errorIfClosed();
 		checkTransactionSynchStatus();
-		SaveOrUpdateEventListener[] updateEventListener = listeners.getUpdateEventListeners();
-		for ( int i = 0; i < updateEventListener.length; i++ ) {
-			updateEventListener[i].onSaveOrUpdate(event);
+		for (SaveOrUpdateEventListener updateEventListener : listeners.getUpdateEventListeners()) {
+			updateEventListener.onSaveOrUpdate(event);
 		}
 	}
 
 
-	// lock() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// lock() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ OK
 
+	@Override
 	public void lock(String entityName, Object object, LockMode lockMode) throws HibernateException {
-		fireLock( new LockEvent(entityName, object, lockMode, this) );
+		fireLock(new LockEvent(entityName, object, lockMode, this));
 	}
 
+	@Override
 	public LockRequest buildLockRequest(LockOptions lockOptions) {
 		return new LockRequestImpl(lockOptions);
 	}
 
+	@Override
 	public void lock(Object object, LockMode lockMode) throws HibernateException {
-		fireLock( new LockEvent(object, lockMode, this) );
+		fireLock(new LockEvent(object, lockMode, this));
 	}
 
 	private void fireLock(String entityName, Object object, LockOptions options) {
-		fireLock( new LockEvent( entityName, object, options, this) );
+		fireLock(new LockEvent(entityName, object, options, this));
 	}
 
 	private void fireLock( Object object, LockOptions options) {
-		fireLock( new LockEvent( object, options, this) );
+		fireLock(new LockEvent(object, options, this));
 	}
 
 	private void fireLock(LockEvent lockEvent) {
 		errorIfClosed();
 		checkTransactionSynchStatus();
-		LockEventListener[] lockEventListener = listeners.getLockEventListeners();
-		for ( int i = 0; i < lockEventListener.length; i++ ) {
-			lockEventListener[i].onLock( lockEvent );
+		for (LockEventListener lockEventListener : listeners.getLockEventListeners()) {
+			lockEventListener.onLock(lockEvent);
 		}
 	}
 
@@ -925,44 +921,45 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 
-	// delete() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	// delete() operations ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ OK
 
 	/**
 	 * Delete a persistent object
 	 */
+	@Override
 	public void delete(Object object) throws HibernateException {
-		fireDelete( new DeleteEvent(object, this) );
+		fireDelete(new DeleteEvent(object, this));
 	}
 
 	/**
 	 * Delete a persistent object (by explicit entity name)
 	 */
+	@Override
 	public void delete(String entityName, Object object) throws HibernateException {
-		fireDelete( new DeleteEvent( entityName, object, this ) );
+		fireDelete(new DeleteEvent(entityName, object, this) );
 	}
 
 	/**
 	 * Delete a persistent object
 	 */
+	@Override
 	public void delete(String entityName, Object object, boolean isCascadeDeleteEnabled, Set transientEntities) throws HibernateException {
-		fireDelete( new DeleteEvent( entityName, object, isCascadeDeleteEnabled, this ), transientEntities );
+		fireDelete(new DeleteEvent(entityName, object, isCascadeDeleteEnabled, this), transientEntities);
 	}
 
 	private void fireDelete(DeleteEvent event) {
 		errorIfClosed();
 		checkTransactionSynchStatus();
-		DeleteEventListener[] deleteEventListener = listeners.getDeleteEventListeners();
-		for ( int i = 0; i < deleteEventListener.length; i++ ) {
-			deleteEventListener[i].onDelete( event );
+		for (DeleteEventListener deleteEventListener : listeners.getDeleteEventListeners()) {
+			deleteEventListener.onDelete(event);
 		}
 	}
 
-	private void fireDelete(DeleteEvent event, Set transientEntities) {
+	private void fireDelete(DeleteEvent event, Set<Object> transientEntities) {
 		errorIfClosed();
 		checkTransactionSynchStatus();
-		DeleteEventListener[] deleteEventListener = listeners.getDeleteEventListeners();
-		for ( int i = 0; i < deleteEventListener.length; i++ ) {
-			deleteEventListener[i].onDelete( event, transientEntities );
+		for (DeleteEventListener deleteEventListener : listeners.getDeleteEventListeners()) {
+			deleteEventListener.onDelete(event, transientEntities);
 		}
 	}
 
@@ -2149,7 +2146,7 @@ public final class SessionImpl extends AbstractSessionImpl
 
 		loadQueryInfluencers = ( LoadQueryInfluencers ) ois.readObject();
 
-		childSessionsByEntityMode = ( Map ) ois.readObject();
+		childSessionsByEntityMode = (Map<EntityMode, SessionImpl>) ois.readObject();
 
 		// LoadQueryInfluencers.getEnabledFilters() tries to validate each enabled
 		// filter, which will fail when called before FilterImpl.afterDeserialize( factory );
@@ -2161,12 +2158,10 @@ public final class SessionImpl extends AbstractSessionImpl
 					.afterDeserialize( factory );
 		}
 
-		if ( isRootSession && childSessionsByEntityMode != null ) {
-			iter = childSessionsByEntityMode.values().iterator();
-			while ( iter.hasNext() ) {
-				final SessionImpl child = ( ( SessionImpl ) iter.next() );
-				child.rootSession = this;
-				child.jdbcContext = this.jdbcContext;
+		if (isRootSession && childSessionsByEntityMode != null) {
+			for (SessionImpl childSession : childSessionsByEntityMode.values()) {
+				childSession.rootSession = this;
+				childSession.jdbcContext = this.jdbcContext;
 			}
 		}
 	}
@@ -2305,21 +2300,22 @@ public final class SessionImpl extends AbstractSessionImpl
 	}
 
 	private class CoordinatingEntityNameResolver implements EntityNameResolver {
+		@Override
 		public String resolveEntityName(Object entity) {
-			String entityName = interceptor.getEntityName( entity );
-			if ( entityName != null ) {
+			String entityName = interceptor.getEntityName(entity);
+			if (entityName != null) {
 				return entityName;
 			}
 
-			Iterator itr = factory.iterateEntityNameResolvers( entityMode );
-			while ( itr.hasNext() ) {
-				final EntityNameResolver resolver = ( EntityNameResolver ) itr.next();
-				entityName = resolver.resolveEntityName( entity );
-				if ( entityName != null ) {
+			Iterator<EntityNameResolver> itr = factory.iterateEntityNameResolvers(entityMode);
+			while (itr.hasNext()) {
+				final EntityNameResolver resolver = itr.next();
+				entityName = resolver.resolveEntityName(entity);
+				if (entityName != null) {
 					break;
 				}
 			}
-			if ( entityName != null ) {
+			if (entityName != null) {
 				return entityName;
 			}
 

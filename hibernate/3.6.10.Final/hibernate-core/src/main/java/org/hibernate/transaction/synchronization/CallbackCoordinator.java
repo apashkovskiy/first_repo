@@ -23,19 +23,16 @@
  */
 package org.hibernate.transaction.synchronization;
 
-import javax.persistence.spi.PersistenceUnitTransactionType;
 import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.hibernate.HibernateException;
 import org.hibernate.TransactionException;
 import org.hibernate.jdbc.JDBCContext;
 import org.hibernate.transaction.TransactionFactory;
 import org.hibernate.util.JTAHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages callbacks from the {@link javax.transaction.Synchronization} registered by Hibernate.
@@ -43,7 +40,8 @@ import org.hibernate.util.JTAHelper;
  * @author Steve Ebersole
  */
 public class CallbackCoordinator {
-	private static final Logger log = LoggerFactory.getLogger( CallbackCoordinator.class );
+	private static final Logger log = LoggerFactory.getLogger(CallbackCoordinator.class);
+	// CLASS FULLY INSPECTED BY ME
 
 	private final TransactionFactory.Context ctx;
 	private JDBCContext jdbcContext;
@@ -53,6 +51,7 @@ public class CallbackCoordinator {
 	private BeforeCompletionManagedFlushChecker beforeCompletionManagedFlushChecker;
 	private AfterCompletionAction afterCompletionAction;
 	private ExceptionMapper exceptionMapper;
+
 
 	public CallbackCoordinator(
 			TransactionFactory.Context ctx,
@@ -66,11 +65,13 @@ public class CallbackCoordinator {
 		reset();
 	}
 
+
 	public void reset() {
 		beforeCompletionManagedFlushChecker = STANDARD_MANAGED_FLUSH_CHECKER;
 		exceptionMapper = STANDARD_EXCEPTION_MAPPER;
 		afterCompletionAction = STANDARD_AFTER_COMPLETION_ACTION;
 	}
+
 
 	public BeforeCompletionManagedFlushChecker getBeforeCompletionManagedFlushChecker() {
 		return beforeCompletionManagedFlushChecker;
@@ -100,85 +101,88 @@ public class CallbackCoordinator {
 	// sync callbacks ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 	public void beforeCompletion() {
-		log.trace( "transaction before completion callback" );
+		log.trace("transaction before completion callback");
 
 		boolean flush;
 		try {
-			flush = beforeCompletionManagedFlushChecker.shouldDoManagedFlush( ctx, jtaTransaction );
-		}
-		catch ( SystemException se ) {
+			flush = beforeCompletionManagedFlushChecker.shouldDoManagedFlush(ctx, jtaTransaction);
+		} catch (SystemException se) {
 			setRollbackOnly();
-			throw exceptionMapper.mapStatusCheckFailure( "could not determine transaction status in beforeCompletion()", se );
+			throw exceptionMapper.mapStatusCheckFailure("could not determine transaction status in beforeCompletion()", se);
 		}
 
 		try {
-			if ( flush ) {
-				log.trace( "automatically flushing session" );
+			if (flush) {
+				log.trace("automatically flushing session");
 				ctx.managedFlush();
 			}
-		}
-		catch ( RuntimeException re ) {
+		} catch (RuntimeException re) {
 			setRollbackOnly();
-			throw exceptionMapper.mapManagedFlushFailure( "error during managed flush", re );
-		}
-		finally {
-			jdbcContext.beforeTransactionCompletion( hibernateTransaction );
+			throw exceptionMapper.mapManagedFlushFailure("error during managed flush", re);
+		} finally {
+			jdbcContext.beforeTransactionCompletion(hibernateTransaction);
 		}
 	}
+
 
 	private void setRollbackOnly() {
 		try {
 			jtaTransaction.setRollbackOnly();
-		}
-		catch ( SystemException se ) {
+		} catch (SystemException se) {
 			// best effort
-			log.error( "could not set transaction to rollback only", se );
+			log.error("could not set transaction to rollback only", se);
 		}
 	}
 
+
 	public void afterCompletion(int status) {
-		log.trace( "transaction after completion callback [status={}]", status );
+		log.trace("transaction after completion callback [status={}]", status);
 
 		try {
-			afterCompletionAction.doAction( ctx, status );
+			afterCompletionAction.doAction(ctx, status);
 
-			final boolean wasSuccessful = ( status == Status.STATUS_COMMITTED );
-			jdbcContext.afterTransactionCompletion( wasSuccessful, hibernateTransaction );
-		}
-		finally {
+			final boolean wasSuccessful = (status == Status.STATUS_COMMITTED);
+			jdbcContext.afterTransactionCompletion(wasSuccessful, hibernateTransaction);
+		} finally {
 			reset();
 			jdbcContext.cleanUpJtaSynchronizationCallbackCoordinator();
-			if ( ctx.shouldAutoClose() && !ctx.isClosed() ) {
-				log.trace( "automatically closing session" );
+			if (ctx.shouldAutoClose() && !ctx.isClosed()) {
+				log.trace("automatically closing session");
 				ctx.managedClose();
 			}
 		}
 	}
 
+
 	private static final BeforeCompletionManagedFlushChecker STANDARD_MANAGED_FLUSH_CHECKER = new BeforeCompletionManagedFlushChecker() {
-		public boolean shouldDoManagedFlush(TransactionFactory.Context ctx, Transaction jtaTransaction)
-				throws SystemException {
+		@Override
+		public boolean shouldDoManagedFlush(TransactionFactory.Context ctx, Transaction jtaTransaction) throws SystemException {
 			return !ctx.isFlushModeNever() &&
 					ctx.isFlushBeforeCompletionEnabled() &&
-			        !JTAHelper.isRollback( jtaTransaction.getStatus() );
+			        !JTAHelper.isRollback(jtaTransaction.getStatus());
 					//actually, this last test is probably unnecessary, since
 					//beforeCompletion() doesn't get called during rollback
 		}
 	};
 
+
 	private static final ExceptionMapper STANDARD_EXCEPTION_MAPPER = new ExceptionMapper() {
+		@Override
 		public RuntimeException mapStatusCheckFailure(String message, SystemException systemException) {
-			log.error( "could not determine transaction status [{}]", systemException.getMessage() );
-			return new TransactionException( "could not determine transaction status in beforeCompletion()", systemException );
+			log.error("could not determine transaction status [{}]", systemException.getMessage());
+			return new TransactionException("could not determine transaction status in beforeCompletion()", systemException);
 		}
 
+		@Override
 		public RuntimeException mapManagedFlushFailure(String message, RuntimeException failure) {
-			log.error( "Error during managed flush [{}]", failure.getMessage() );
+			log.error("Error during managed flush [{}]", failure.getMessage());
 			return failure;
 		}
 	};
 
+
 	private static final AfterCompletionAction STANDARD_AFTER_COMPLETION_ACTION = new AfterCompletionAction() {
+		@Override
 		public void doAction(TransactionFactory.Context ctx, int status) {
 			// nothing to do by default.
 		}

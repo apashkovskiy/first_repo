@@ -35,6 +35,8 @@ import org.hibernate.transaction.TransactionFactory;
  * @author Steve Ebersole
  */
 public interface BeforeCompletionManagedFlushChecker {
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Check whether we should perform the managed flush
 	 *
@@ -46,6 +48,5 @@ public interface BeforeCompletionManagedFlushChecker {
 	 * @throws SystemException Can be thrown while accessing the JTA transaction; will result in transaction being
 	 * marked for rollback (best effort).
 	 */
-	public boolean shouldDoManagedFlush(TransactionFactory.Context ctx, Transaction jtaTransaction)
-			throws SystemException;
+	public boolean shouldDoManagedFlush(TransactionFactory.Context ctx, Transaction jtaTransaction) throws SystemException;
 }

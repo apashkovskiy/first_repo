@@ -29,6 +29,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,13 +42,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
 import javax.naming.NamingException;
 import javax.naming.Reference;
 import javax.naming.StringRefAddr;
 import javax.transaction.TransactionManager;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.hibernate.AssertionFailure;
 import org.hibernate.Cache;
@@ -119,6 +118,7 @@ import org.hibernate.tool.hbm2ddl.SchemaExport;
 import org.hibernate.tool.hbm2ddl.SchemaUpdate;
 import org.hibernate.tool.hbm2ddl.SchemaValidator;
 import org.hibernate.transaction.TransactionFactory;
+import org.hibernate.tuple.Tuplizer;
 import org.hibernate.tuple.entity.EntityTuplizer;
 import org.hibernate.type.AssociationType;
 import org.hibernate.type.Type;
@@ -126,6 +126,8 @@ import org.hibernate.type.TypeResolver;
 import org.hibernate.util.CollectionHelper;
 import org.hibernate.util.EmptyIterator;
 import org.hibernate.util.ReflectHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -151,7 +153,8 @@ import org.hibernate.util.ReflectHelper;
  * @see org.hibernate.persister.collection.CollectionPersister
  * @author Gavin King
  */
-public final class SessionFactoryImpl implements SessionFactory, SessionFactoryImplementor {
+public final class SessionFactoryImpl implements SessionFactoryImplementor {
+	private static final long serialVersionUID = 2228129191920456237L; // pipan was there
 
 	private static final Logger log = LoggerFactory.getLogger(SessionFactoryImpl.class);
 	private static final IdentifierGenerator UUID_GENERATOR = UUIDGenerator.buildSessionFactoryUniqueIdentifierGenerator();
@@ -159,18 +162,18 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 	private final String name;
 	private final String uuid;
 
-	private final transient Map entityPersisters;
-	private final transient Map<String,ClassMetadata> classMetadata;
-	private final transient Map collectionPersisters;
-	private final transient Map collectionMetadata;
-	private final transient Map<String,Set<String>> collectionRolesByEntityParticipant;
-	private final transient Map identifierGenerators;
-	private final transient Map namedQueries;
-	private final transient Map namedSqlQueries;
-	private final transient Map sqlResultSetMappings;
-	private final transient Map filters;
-	private final transient Map fetchProfiles;
-	private final transient Map imports;
+	private final transient Map<String, EntityPersister> entityPersisters;
+	private final transient Map<String, ClassMetadata> classMetadata;
+	private final transient Map<String, CollectionPersister> collectionPersisters;
+	private final transient Map<String, CollectionMetadata> collectionMetadata;
+	private final transient Map<String, Set<String>> collectionRolesByEntityParticipant;
+	private final transient Map<String, IdentifierGenerator> identifierGenerators;
+	private final transient Map<String, NamedQueryDefinition> namedQueries;
+	private final transient Map<String, NamedSQLQueryDefinition> namedSqlQueries;
+	private final transient Map<String, ResultSetMappingDefinition> sqlResultSetMappings;
+	private final transient Map<String, FilterDefinition> filters;
+	private final transient Map<String, FetchProfile> fetchProfiles;
+	private final transient Map<String, String> imports;
 	private final transient Interceptor interceptor;
 	private final transient Settings settings;
 	private final transient Properties properties;
@@ -178,21 +181,32 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 	private final transient TransactionManager transactionManager;
 	private final transient QueryCache queryCache;
 	private final transient UpdateTimestampsCache updateTimestampsCache;
-	private final transient Map<String,QueryCache> queryCaches;
-	private final transient ConcurrentMap<String,Region> allCacheRegions = new ConcurrentHashMap<String, Region>();
+	private final transient Map<String, QueryCache> queryCaches;
+	private final transient ConcurrentMap<String, Region> allCacheRegions = new ConcurrentHashMap<String, Region>();
 	private final transient Statistics statistics;
 	private final transient EventListeners eventListeners;
 	private final transient CurrentSessionContext currentSessionContext;
 	private final transient EntityNotFoundDelegate entityNotFoundDelegate;
 	private final transient SQLFunctionRegistry sqlFunctionRegistry;
 	private final transient SessionFactoryObserver observer;
-	private final transient HashMap entityNameResolvers = new HashMap();
+	private final transient Map<EntityMode, Set<EntityNameResolver>> entityNameResolvers = new HashMap<EntityMode, Set<EntityNameResolver>>();
 	private final transient QueryPlanCache queryPlanCache;
 	private final transient Cache cacheAccess = new CacheImpl();
 	private transient boolean isClosed = false;
 	private final transient TypeResolver typeResolver;
 	private final transient TypeHelper typeHelper;
 
+
+
+	/**
+	 * CONSTRUCTOR!!!11
+	 * 
+	 * @param cfg
+	 * @param mapping
+	 * @param settings
+	 * @param listeners
+	 * @param observer
+	 */
 	public SessionFactoryImpl(
 			Configuration cfg,
 	        Mapping mapping,
@@ -212,26 +226,30 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		this.sqlFunctionRegistry = new SQLFunctionRegistry(settings.getDialect(), cfg.getSqlFunctions());
         this.eventListeners = listeners;
 		this.observer = observer != null ? observer : new SessionFactoryObserver() {
+			private static final long serialVersionUID = -7573346933307506703L;
+
+			@Override
 			public void sessionFactoryCreated(SessionFactory factory) {
+				
 			}
+
+			@Override
 			public void sessionFactoryClosed(SessionFactory factory) {
+				
 			}
 		};
 
 		this.typeResolver = cfg.getTypeResolver().scope( this );
 		this.typeHelper = new TypeLocatorImpl( typeResolver );
 
-		this.filters = new HashMap();
-		this.filters.putAll( cfg.getFilterDefinitions() );
-
-		if ( log.isDebugEnabled() ) {
+		this.filters = new HashMap<String, FilterDefinition>();
+		this.filters.putAll(cfg.getFilterDefinitions());
+		if (log.isDebugEnabled()) {
 			log.debug("Session factory constructed with filter configurations : " + filters);
 		}
 
-		if ( log.isDebugEnabled() ) {
-			log.debug(
-					"instantiating session factory with properties: " + properties
-			);
+		if (log.isDebugEnabled()) {
+			log.debug("instantiating session factory with properties: " + properties);
 		}
 
 		// Caches
@@ -240,11 +258,11 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 
 		//Generators:
 
-		identifierGenerators = new HashMap();
-		Iterator classes = cfg.getClassMappings();
-		while ( classes.hasNext() ) {
-			PersistentClass model = (PersistentClass) classes.next();
-			if ( !model.isInherited() ) {
+		identifierGenerators = new HashMap<String, IdentifierGenerator>();
+		Iterator<PersistentClass> classesIterator1 = cfg.getClassMappings();
+		while (classesIterator1.hasNext()) {
+			PersistentClass model = classesIterator1.next();
+			if (!model.isInherited()) {
 				IdentifierGenerator generator = model.getIdentifier().createIdentifierGenerator(
 						cfg.getIdentifierGeneratorFactory(),
 						settings.getDialect(),
@@ -252,7 +270,7 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 				        settings.getDefaultSchemaName(),
 				        (RootClass) model
 				);
-				identifierGenerators.put( model.getEntityName(), generator );
+				identifierGenerators.put(model.getEntityName(), generator);
 			}
 		}
 
@@ -263,12 +281,12 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 
 		final String cacheRegionPrefix = settings.getCacheRegionPrefix() == null ? "" : settings.getCacheRegionPrefix() + ".";
 
-		entityPersisters = new HashMap();
-		Map entityAccessStrategies = new HashMap();
+		entityPersisters = new HashMap<String, EntityPersister>();
+		Map<String, EntityRegionAccessStrategy> entityAccessStrategies = new HashMap<String, EntityRegionAccessStrategy>();
 		Map<String,ClassMetadata> classMeta = new HashMap<String,ClassMetadata>();
-		classes = cfg.getClassMappings();
-		while ( classes.hasNext() ) {
-			final PersistentClass model = (PersistentClass) classes.next();
+		Iterator<PersistentClass> classesIterator2 = cfg.getClassMappings();
+		while (classesIterator2.hasNext()) {
+			final PersistentClass model = classesIterator2.next();
 			model.prepareTemporaryTables( mapping, settings.getDialect() );
 			final String cacheRegionName = cacheRegionPrefix + model.getRootClass().getCacheRegionName();
 			// cache region is defined by the root-class in the hierarchy...
@@ -284,16 +302,19 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 				}
 			}
 			EntityPersister cp = PersisterFactory.createClassPersister( model, accessStrategy, this, mapping );
-			entityPersisters.put( model.getEntityName(), cp );
+			entityPersisters.put(model.getEntityName(), cp);
 			classMeta.put( model.getEntityName(), cp.getClassMetadata() );
 		}
 		this.classMetadata = Collections.unmodifiableMap(classMeta);
 
-		Map<String,Set<String>> tmpEntityToCollectionRoleMap = new HashMap<String,Set<String>>();
-		collectionPersisters = new HashMap();
-		Iterator collections = cfg.getCollectionMappings();
-		while ( collections.hasNext() ) {
-			Collection model = (Collection) collections.next();
+		Map<String, Set<String>> tmpEntityToCollectionRoleMap = new HashMap<String, Set<String>>();
+		collectionPersisters = new HashMap<String, CollectionPersister>();
+		collectionMetadata = new HashMap<String, CollectionMetadata>(); // FIXED BY pipan TODO check Hibernate 4.0 for this bug
+		
+		Iterator<Collection> collections = cfg.getCollectionMappings();
+		while (collections.hasNext()) {
+			Collection model = collections.next();
+			
 			final String cacheRegionName = cacheRegionPrefix + model.getCacheRegionName();
 			final AccessType accessType = AccessType.parse( model.getCacheConcurrencyStrategy() );
 			CollectionRegionAccessStrategy accessStrategy = null;
@@ -301,57 +322,56 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 				log.trace( "Building cache for collection data [" + model.getRole() + "]" );
 				CollectionRegion collectionRegion = settings.getRegionFactory().buildCollectionRegion( cacheRegionName, properties, CacheDataDescriptionImpl.decode( model ) );
 				accessStrategy = collectionRegion.buildAccessStrategy( accessType );
-				entityAccessStrategies.put( cacheRegionName, accessStrategy );
+				// entityAccessStrategies.put(cacheRegionName, accessStrategy); // FIXED BY pipan
 				allCacheRegions.put( cacheRegionName, collectionRegion );
 			}
 			CollectionPersister persister = PersisterFactory.createCollectionPersister( cfg, model, accessStrategy, this) ;
-			collectionPersisters.put( model.getRole(), persister.getCollectionMetadata() );
+			collectionPersisters.put(model.getRole(), persister); // FIXED BY pipan
+			collectionMetadata.put(model.getRole(), persister.getCollectionMetadata()); // FIXED BY pipan
+			
 			Type indexType = persister.getIndexType();
-			if ( indexType != null && indexType.isAssociationType() && !indexType.isAnyType() ) {
-				String entityName = ( ( AssociationType ) indexType ).getAssociatedEntityName( this );
-				Set roles = ( Set ) tmpEntityToCollectionRoleMap.get( entityName );
-				if ( roles == null ) {
-					roles = new HashSet();
-					tmpEntityToCollectionRoleMap.put( entityName, roles );
+			if (indexType != null && indexType.isAssociationType() && !indexType.isAnyType()) {
+				String entityName = ((AssociationType) indexType).getAssociatedEntityName(this);
+				Set<String> roles = tmpEntityToCollectionRoleMap.get( entityName );
+				if (roles == null) {
+					roles = new HashSet<String>();
+					tmpEntityToCollectionRoleMap.put(entityName, roles);
 				}
-				roles.add( persister.getRole() );
+				roles.add(persister.getRole());
 			}
+			
 			Type elementType = persister.getElementType();
-			if ( elementType.isAssociationType() && !elementType.isAnyType() ) {
-				String entityName = ( ( AssociationType ) elementType ).getAssociatedEntityName( this );
-				Set roles = ( Set ) tmpEntityToCollectionRoleMap.get( entityName );
-				if ( roles == null ) {
-					roles = new HashSet();
-					tmpEntityToCollectionRoleMap.put( entityName, roles );
+			if (elementType.isAssociationType() && !elementType.isAnyType()) {
+				String entityName = ((AssociationType) elementType).getAssociatedEntityName(this);
+				Set<String> roles = tmpEntityToCollectionRoleMap.get(entityName);
+				if (roles == null) {
+					roles = new HashSet<String>();
+					tmpEntityToCollectionRoleMap.put(entityName, roles);
 				}
-				roles.add( persister.getRole() );
+				roles.add(persister.getRole());
 			}
 		}
-		collectionMetadata = Collections.unmodifiableMap(collectionPersisters);
-		Iterator itr = tmpEntityToCollectionRoleMap.entrySet().iterator();
-		while ( itr.hasNext() ) {
-			final Map.Entry entry = ( Map.Entry ) itr.next();
-			entry.setValue( Collections.unmodifiableSet( ( Set ) entry.getValue() ) );
+		// collectionMetadata = Collections.unmodifiableMap(collectionPersisters); // FIXED BY pipan
+		for (Map.Entry<String, Set<String>> entry : tmpEntityToCollectionRoleMap.entrySet()) {
+			Set<String> oldValue = entry.getValue();
+			Set<String> newValue = Collections.unmodifiableSet(oldValue);
+			entry.setValue(newValue);
 		}
-		collectionRolesByEntityParticipant = Collections.unmodifiableMap( tmpEntityToCollectionRoleMap );
+		collectionRolesByEntityParticipant = Collections.unmodifiableMap(tmpEntityToCollectionRoleMap);
 
 		//Named Queries:
-		namedQueries = new HashMap( cfg.getNamedQueries() );
-		namedSqlQueries = new HashMap( cfg.getNamedSQLQueries() );
-		sqlResultSetMappings = new HashMap( cfg.getSqlResultSetMappings() );
-		imports = new HashMap( cfg.getImports() );
+		namedQueries = new HashMap<String, NamedQueryDefinition>(cfg.getNamedQueries());
+		namedSqlQueries = new HashMap<String, NamedSQLQueryDefinition>(cfg.getNamedSQLQueries());
+		sqlResultSetMappings = new HashMap<String, ResultSetMappingDefinition>(cfg.getSqlResultSetMappings());
+		imports = new HashMap<String, String>(cfg.getImports());
 
 		// after *all* persisters and named queries are registered
-		Iterator iter = entityPersisters.values().iterator();
-		while ( iter.hasNext() ) {
-			final EntityPersister persister = ( ( EntityPersister ) iter.next() );
+		for (EntityPersister persister : entityPersisters.values()) {
 			persister.postInstantiate();
-			registerEntityNameResolvers( persister );
-
+			registerEntityNameResolvers(persister);
 		}
-		iter = collectionPersisters.values().iterator();
-		while ( iter.hasNext() ) {
-			final CollectionPersister persister = ( ( CollectionPersister ) iter.next() );
+		
+		for (CollectionPersister persister : collectionPersisters.values()) {
 			persister.postInstantiate();
 		}
 
@@ -410,20 +430,20 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 
 		//checking for named queries
 		if ( settings.isNamedQueryStartupCheckingEnabled() ) {
-			Map errors = checkNamedQueries();
-			if ( !errors.isEmpty() ) {
-				Set keys = errors.keySet();
-				StringBuffer failingQueries = new StringBuffer( "Errors in named queries: " );
-				for ( Iterator iterator = keys.iterator() ; iterator.hasNext() ; ) {
-					String queryName = ( String ) iterator.next();
-					HibernateException e = ( HibernateException ) errors.get( queryName );
-					failingQueries.append( queryName );
-					if ( iterator.hasNext() ) {
-						failingQueries.append( ", " );
+			Map<String, HibernateException> errors = checkNamedQueries();
+			if (!errors.isEmpty()) {
+				StringBuffer failingQueries = new StringBuffer("Errors in named queries: ");
+				Set<String> keys = errors.keySet();
+				for (Iterator<String> iterator = keys.iterator(); iterator.hasNext();) {
+					String queryName = iterator.next();
+					HibernateException e = errors.get(queryName);
+					failingQueries.append(queryName);
+					if (iterator.hasNext()) {
+						failingQueries.append(", ");
 					}
-					log.error( "Error in named query: " + queryName, e );
+					log.error("Error in named query: " + queryName, e);
 				}
-				throw new HibernateException( failingQueries.toString() );
+				throw new HibernateException(failingQueries.toString());
 			}
 		}
 
@@ -439,19 +459,16 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		this.entityNotFoundDelegate = entityNotFoundDelegate;
 
 		// this needs to happen after persisters are all ready to go...
-		this.fetchProfiles = new HashMap();
-		itr = cfg.iterateFetchProfiles();
-		while ( itr.hasNext() ) {
-			final org.hibernate.mapping.FetchProfile mappingProfile =
-					( org.hibernate.mapping.FetchProfile ) itr.next();
-			final FetchProfile fetchProfile = new FetchProfile( mappingProfile.getName() );
-			Iterator fetches = mappingProfile.getFetches().iterator();
-			while ( fetches.hasNext() ) {
-				final org.hibernate.mapping.FetchProfile.Fetch mappingFetch =
-						( org.hibernate.mapping.FetchProfile.Fetch ) fetches.next();
+		this.fetchProfiles = new HashMap<String, FetchProfile>();
+		Iterator<org.hibernate.mapping.FetchProfile> itr = cfg.iterateFetchProfiles();
+		while (itr.hasNext()) {
+			final org.hibernate.mapping.FetchProfile mappingProfile = itr.next();
+			
+			final FetchProfile fetchProfile = new FetchProfile(mappingProfile.getName());
+			for (org.hibernate.mapping.FetchProfile.Fetch mappingFetch : mappingProfile.getFetches()) {
 				// resolve the persister owning the fetch
 				final String entityName = getImportedClassName( mappingFetch.getEntity() );
-				final EntityPersister owner = ( EntityPersister ) ( entityName == null ? null : entityPersisters.get( entityName ) );
+				final EntityPersister owner = (entityName == null) ? null : entityPersisters.get(entityName);
 				if ( owner == null ) {
 					throw new HibernateException(
 							"Unable to resolve entity reference [" + mappingFetch.getEntity()
@@ -472,32 +489,38 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 				fetchProfile.addFetch( new Association( owner, mappingFetch.getAssociation() ), fetchStyle );
 				( ( Loadable ) owner ).registerAffectingFetchProfile( fetchProfile.getName() );
 			}
-			fetchProfiles.put( fetchProfile.getName(), fetchProfile );
+			fetchProfiles.put(fetchProfile.getName(), fetchProfile);
 		}
 
 		this.observer.sessionFactoryCreated( this );
 	}
 
+
+
+	@Override
 	public Properties getProperties() {
 		return properties;
 	}
 
+	@Override
 	public IdentifierGeneratorFactory getIdentifierGeneratorFactory() {
 		return null;
 	}
 
+	@Override
 	public TypeResolver getTypeResolver() {
 		return typeResolver;
 	}
 
 	private void registerEntityNameResolvers(EntityPersister persister) {
-		if ( persister.getEntityMetamodel() == null || persister.getEntityMetamodel().getTuplizerMapping() == null ) {
+		if (persister.getEntityMetamodel() == null || persister.getEntityMetamodel().getTuplizerMapping() == null) {
 			return;
 		}
-		Iterator itr = persister.getEntityMetamodel().getTuplizerMapping().iterateTuplizers();
-		while ( itr.hasNext() ) {
-			final EntityTuplizer tuplizer = ( EntityTuplizer ) itr.next();
-			registerEntityNameResolvers( tuplizer );
+		
+		Iterator<Tuplizer> itr = persister.getEntityMetamodel().getTuplizerMapping().iterateTuplizers();
+		while (itr.hasNext()) {
+			final EntityTuplizer tuplizer = (EntityTuplizer) itr.next(); // can fail, pipan
+			registerEntityNameResolvers(tuplizer);
 		}
 	}
 
@@ -513,106 +536,139 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 	}
 
 	public void registerEntityNameResolver(EntityNameResolver resolver, EntityMode entityMode) {
-		LinkedHashSet resolversForMode = ( LinkedHashSet ) entityNameResolvers.get( entityMode );
-		if ( resolversForMode == null ) {
-			resolversForMode = new LinkedHashSet();
-			entityNameResolvers.put( entityMode, resolversForMode );
+		Set<EntityNameResolver> resolversForMode = entityNameResolvers.get(entityMode);
+		if (resolversForMode == null) {
+			resolversForMode = new LinkedHashSet<EntityNameResolver>();
+			entityNameResolvers.put(entityMode, resolversForMode);
 		}
-		resolversForMode.add( resolver );
+		resolversForMode.add(resolver);
 	}
 
-	public Iterator iterateEntityNameResolvers(EntityMode entityMode) {
-		Set actualEntityNameResolvers = ( Set ) entityNameResolvers.get( entityMode );
+	public Iterator<EntityNameResolver> iterateEntityNameResolvers(EntityMode entityMode) {
+		Set<EntityNameResolver> actualEntityNameResolvers = entityNameResolvers.get(entityMode);
+		actualEntityNameResolvers.iterator();
 		return actualEntityNameResolvers == null
-				? EmptyIterator.INSTANCE
+				? new EmptyIterator<EntityNameResolver>()
 				: actualEntityNameResolvers.iterator();
 	}
 
+	@Override
 	public QueryPlanCache getQueryPlanCache() {
 		return queryPlanCache;
 	}
 
-	private Map checkNamedQueries() throws HibernateException {
-		Map errors = new HashMap();
+
+
+	private Map<String, HibernateException> checkNamedQueries() throws HibernateException {
+		Map<String, HibernateException> errors = new HashMap<String, HibernateException>();
+
 
 		// Check named HQL queries
 		log.debug("Checking " + namedQueries.size() + " named HQL queries");
-		Iterator itr = namedQueries.entrySet().iterator();
-		while ( itr.hasNext() ) {
-			final Map.Entry entry = ( Map.Entry ) itr.next();
-			final String queryName = ( String ) entry.getKey();
-			final NamedQueryDefinition qd = ( NamedQueryDefinition ) entry.getValue();
+		for (Map.Entry<String, NamedQueryDefinition> entry : namedQueries.entrySet()) {
+			final String queryName = entry.getKey();
+			final NamedQueryDefinition qd = entry.getValue();
+			
+			log.debug("Checking named query: " + queryName);
+			
 			// this will throw an error if there's something wrong.
 			try {
-				log.debug("Checking named query: " + queryName);
 				//TODO: BUG! this currently fails for named queries for non-POJO entities
-				queryPlanCache.getHQLQueryPlan( qd.getQueryString(), false, CollectionHelper.EMPTY_MAP );
-			}
-			catch ( QueryException e ) {
-				errors.put( queryName, e );
-			}
-			catch ( MappingException e ) {
-				errors.put( queryName, e );
+				queryPlanCache.getHQLQueryPlan(qd.getQueryString(), false, CollectionHelper.EMPTY_MAP);
+			} catch (QueryException e) {
+				errors.put(queryName, e);
+			} catch (MappingException e) {
+				errors.put(queryName, e);
 			}
 		}
 
+
 		log.debug("Checking " + namedSqlQueries.size() + " named SQL queries");
-		itr = namedSqlQueries.entrySet().iterator();
-		while ( itr.hasNext() ) {
-			final Map.Entry entry = ( Map.Entry ) itr.next();
-			final String queryName = ( String ) entry.getKey();
-			final NamedSQLQueryDefinition qd = ( NamedSQLQueryDefinition ) entry.getValue();
+		for (Map.Entry<String, NamedSQLQueryDefinition> entry : namedSqlQueries.entrySet()) {
+			final String queryName = entry.getKey();
+			final NamedSQLQueryDefinition qd = entry.getValue();
+			
+			log.debug("Checking named SQL query: " + queryName);
+			
 			// this will throw an error if there's something wrong.
 			try {
-				log.debug("Checking named SQL query: " + queryName);
 				// TODO : would be really nice to cache the spec on the query-def so as to not have to re-calc the hash;
 				// currently not doable though because of the resultset-ref stuff...
 				NativeSQLQuerySpecification spec;
-				if ( qd.getResultSetRef() != null ) {
-					ResultSetMappingDefinition definition = ( ResultSetMappingDefinition ) sqlResultSetMappings.get( qd.getResultSetRef() );
-					if ( definition == null ) {
-						throw new MappingException( "Unable to find resultset-ref definition: " + qd.getResultSetRef() );
+				if (qd.getResultSetRef() != null) {
+					ResultSetMappingDefinition definition = sqlResultSetMappings.get(qd.getResultSetRef());
+					if (definition == null) {
+						throw new MappingException("Unable to find resultset-ref definition: " + qd.getResultSetRef());
 					}
 					spec = new NativeSQLQuerySpecification(
-							qd.getQueryString(),
-					        definition.getQueryReturns(),
-					        qd.getQuerySpaces()
+						qd.getQueryString(), 
+						definition.getQueryReturns(), 
+						qd.getQuerySpaces()
 					);
-				}
-				else {
+				} else {
 					spec =  new NativeSQLQuerySpecification(
-							qd.getQueryString(),
-					        qd.getQueryReturns(),
-					        qd.getQuerySpaces()
+						qd.getQueryString(), 
+						qd.getQueryReturns(), 
+						qd.getQuerySpaces()
 					);
 				}
-				queryPlanCache.getNativeSQLQueryPlan( spec );
-			}
-			catch ( QueryException e ) {
-				errors.put( queryName, e );
-			}
-			catch ( MappingException e ) {
-				errors.put( queryName, e );
+				
+				queryPlanCache.getNativeSQLQueryPlan(spec);
+			} catch (QueryException e) {
+				errors.put(queryName, e);
+			} catch (MappingException e) {
+				errors.put(queryName, e);
 			}
 		}
 
 		return errors;
 	}
 
+
+
+	@Override
 	public StatelessSession openStatelessSession() {
-		return new StatelessSessionImpl( null, this );
+		return new StatelessSessionImpl(null, this);
 	}
 
+	@Override
 	public StatelessSession openStatelessSession(Connection connection) {
-		return new StatelessSessionImpl( connection, this );
+		return new StatelessSessionImpl(connection, this);
 	}
+
+
+
+	@Override
+	public org.hibernate.classic.Session openSession(Connection connection) {
+		return openSession(connection, interceptor); //prevents this session from adding things to cache
+	}
+
+	@Override
+	public org.hibernate.classic.Session openSession(Connection connection, Interceptor sessionLocalInterceptor) {
+		return openSession(connection, false, Long.MIN_VALUE, sessionLocalInterceptor);
+	}
+
+	@Override
+	public org.hibernate.classic.Session openSession() throws HibernateException {
+		return openSession(interceptor);
+	}
+
+	@Override
+	public org.hibernate.classic.Session openSession(Interceptor sessionLocalInterceptor) throws HibernateException {
+		// note that this timestamp is not correct if the connection provider
+		// returns an older JDBC connection that was associated with a
+		// transaction that was already begun before openSession() was called
+		// (don't know any possible solution to this!)
+		long timestamp = settings.getRegionFactory().nextTimestamp();
+		return openSession( null, true, timestamp, sessionLocalInterceptor );
+	}
+
 
 	private SessionImpl openSession(
-		Connection connection,
-	    boolean autoClose,
-	    long timestamp,
-	    Interceptor sessionLocalInterceptor
-	) {
+			Connection connection,
+		    boolean autoClose,
+		    long timestamp,
+		    Interceptor sessionLocalInterceptor) {
 		return new SessionImpl(
 		        connection,
 		        this,
@@ -623,31 +679,12 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		        settings.isFlushBeforeCompletionEnabled(),
 		        settings.isAutoCloseSessionEnabled(),
 		        settings.getConnectionReleaseMode()
-			);
+		);
 	}
 
-	public org.hibernate.classic.Session openSession(Connection connection, Interceptor sessionLocalInterceptor) {
-		return openSession(connection, false, Long.MIN_VALUE, sessionLocalInterceptor);
-	}
 
-	public org.hibernate.classic.Session openSession(Interceptor sessionLocalInterceptor)
-	throws HibernateException {
-		// note that this timestamp is not correct if the connection provider
-		// returns an older JDBC connection that was associated with a
-		// transaction that was already begun before openSession() was called
-		// (don't know any possible solution to this!)
-		long timestamp = settings.getRegionFactory().nextTimestamp();
-		return openSession( null, true, timestamp, sessionLocalInterceptor );
-	}
 
-	public org.hibernate.classic.Session openSession(Connection connection) {
-		return openSession(connection, interceptor); //prevents this session from adding things to cache
-	}
-
-	public org.hibernate.classic.Session openSession() throws HibernateException {
-		return openSession(interceptor);
-	}
-
+	@Override
 	public org.hibernate.classic.Session openTemporarySession() throws HibernateException {
 		return new SessionImpl(
 				null,
@@ -662,6 +699,7 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 			);
 	}
 
+	@Override
 	public org.hibernate.classic.Session openSession(
 			final Connection connection,
 	        final boolean flushBeforeCompletionEnabled,
@@ -680,39 +718,47 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 			);
 	}
 
+
+	@Override
 	public org.hibernate.classic.Session getCurrentSession() throws HibernateException {
-		if ( currentSessionContext == null ) {
-			throw new HibernateException( "No CurrentSessionContext configured!" );
+		if (currentSessionContext == null) {
+			throw new HibernateException("No CurrentSessionContext configured!");
 		}
 		return currentSessionContext.currentSession();
 	}
 
+	@Override
 	public EntityPersister getEntityPersister(String entityName) throws MappingException {
-		EntityPersister result = (EntityPersister) entityPersisters.get(entityName);
-		if (result==null) {
-			throw new MappingException( "Unknown entity: " + entityName );
+		EntityPersister result = entityPersisters.get(entityName);
+		if (result == null) {
+			throw new MappingException("Unknown entity: " + entityName);
 		}
 		return result;
 	}
 
+	@Override
 	public CollectionPersister getCollectionPersister(String role) throws MappingException {
-		CollectionPersister result = (CollectionPersister) collectionPersisters.get(role);
-		if (result==null) {
-			throw new MappingException( "Unknown collection role: " + role );
+		CollectionPersister result = collectionPersisters.get(role);
+		if (result == null) {
+			throw new MappingException("Unknown collection role: " + role);
 		}
 		return result;
 	}
 
+
+
+	@Override
 	public Settings getSettings() {
 		return settings;
 	}
 
+	@Override
 	public Dialect getDialect() {
 		return settings.getDialect();
 	}
 
-	public Interceptor getInterceptor()
-	{
+	@Override
+	public Interceptor getInterceptor() {
 		return interceptor;
 	}
 
@@ -720,19 +766,25 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		return settings.getTransactionFactory();
 	}
 
+	@Override
 	public TransactionManager getTransactionManager() {
 		return transactionManager;
 	}
 
+	@Override
 	public SQLExceptionConverter getSQLExceptionConverter() {
 		return settings.getSQLExceptionConverter();
 	}
 
+	@Override
 	public Set<String> getCollectionRolesByEntityParticipant(String entityName) {
 		return collectionRolesByEntityParticipant.get( entityName );
 	}
 
+
+
 	// from javax.naming.Referenceable
+	@Override
 	public Reference getReference() throws NamingException {
 		log.debug("Returning a Reference to the SessionFactory");
 		return new Reference(
@@ -742,6 +794,8 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		    null
 		);
 	}
+
+
 
 	private Object readResolve() throws ObjectStreamException {
 		log.trace("Resolving serialized SessionFactory");
@@ -764,24 +818,34 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		return result;
 	}
 
+
+
+	@Override
 	public NamedQueryDefinition getNamedQuery(String queryName) {
-		return (NamedQueryDefinition) namedQueries.get(queryName);
+		return namedQueries.get(queryName);
 	}
 
+	@Override
 	public NamedSQLQueryDefinition getNamedSQLQuery(String queryName) {
-		return (NamedSQLQueryDefinition) namedSqlQueries.get(queryName);
+		return namedSqlQueries.get(queryName);
 	}
 
+	@Override
 	public ResultSetMappingDefinition getResultSetMapping(String resultSetName) {
-		return (ResultSetMappingDefinition) sqlResultSetMappings.get(resultSetName);
+		return sqlResultSetMappings.get(resultSetName);
 	}
 
+	@Override
 	public Type getIdentifierType(String className) throws MappingException {
 		return getEntityPersister(className).getIdentifierType();
 	}
+
+	@Override
 	public String getIdentifierPropertyName(String className) throws MappingException {
 		return getEntityPersister(className).getIdentifierPropertyName();
 	}
+
+
 
 	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
 		log.trace("deserializing");
@@ -795,46 +859,53 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		log.trace("serialized");
 	}
 
+
+
+	@Override
 	public Type[] getReturnTypes(String queryString) throws HibernateException {
 		return queryPlanCache.getHQLQueryPlan( queryString, false, CollectionHelper.EMPTY_MAP ).getReturnMetadata().getReturnTypes();
 	}
 
+	@Override
 	public String[] getReturnAliases(String queryString) throws HibernateException {
 		return queryPlanCache.getHQLQueryPlan( queryString, false, CollectionHelper.EMPTY_MAP ).getReturnMetadata().getReturnAliases();
 	}
 
-	public ClassMetadata getClassMetadata(Class persistentClass) throws HibernateException {
-		return getClassMetadata( persistentClass.getName() );
+	@Override
+	public ClassMetadata getClassMetadata(Class<?> persistentClass) throws HibernateException {
+		return getClassMetadata(persistentClass.getName());
 	}
 
+	@Override
 	public CollectionMetadata getCollectionMetadata(String roleName) throws HibernateException {
-		return (CollectionMetadata) collectionMetadata.get(roleName);
+		return collectionMetadata.get(roleName);
 	}
 
+	@Override
 	public ClassMetadata getClassMetadata(String entityName) throws HibernateException {
-		return (ClassMetadata) classMetadata.get(entityName);
+		return classMetadata.get(entityName);
 	}
+
+
 
 	/**
 	 * Return the names of all persistent (mapped) classes that extend or implement the
 	 * given class or interface, accounting for implicit/explicit polymorphism settings
 	 * and excluding mapped subclasses/joined-subclasses of other classes in the result.
 	 */
+	@Override
 	public String[] getImplementors(String className) throws MappingException {
-
-		final Class clazz;
+		final Class<?> clazz;
 		try {
 			clazz = ReflectHelper.classForName(className);
-		}
-		catch (ClassNotFoundException cnfe) {
-			return new String[] { className }; //for a dynamic-class
+		} catch (ClassNotFoundException cnfe) {
+			return new String[] {className}; //for a dynamic-class
 		}
 
-		ArrayList results = new ArrayList();
-		Iterator iter = entityPersisters.values().iterator();
-		while ( iter.hasNext() ) {
+		ArrayList<String> results = new ArrayList<String>();
+		for (EntityPersister testPersister : entityPersisters.values()) {
 			//test this entity to see if we must query it
-			EntityPersister testPersister = (EntityPersister) iter.next();
+			
 			if ( testPersister instanceof Queryable ) {
 				Queryable testQueryable = (Queryable) testPersister;
 				String testClassName = testQueryable.getEntityName();
@@ -849,11 +920,11 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 						results.add(testClassName);
 					}
 					else {
-						final Class mappedClass = testQueryable.getMappedClass( EntityMode.POJO );
+						final Class<?> mappedClass = testQueryable.getMappedClass( EntityMode.POJO );
 						if ( mappedClass!=null && clazz.isAssignableFrom( mappedClass ) ) {
 							final boolean assignableSuperclass;
 							if ( testQueryable.isInherited() ) {
-								Class mappedSuperclass = getEntityPersister( testQueryable.getMappedSuperclass() ).getMappedClass( EntityMode.POJO);
+								Class<?> mappedSuperclass = getEntityPersister( testQueryable.getMappedSuperclass() ).getMappedClass( EntityMode.POJO);
 								assignableSuperclass = clazz.isAssignableFrom(mappedSuperclass);
 							}
 							else {
@@ -867,41 +938,49 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 				}
 			}
 		}
-		return (String[]) results.toArray( new String[ results.size() ] );
+		
+		return results.toArray(new String[results.size()]);
 	}
 
+
+	@Override
 	public String getImportedClassName(String className) {
-		String result = (String) imports.get(className);
-		if (result==null) {
+		String result = imports.get(className);
+		if (result == null) {
 			try {
 				ReflectHelper.classForName(className);
 				return className;
-			}
-			catch (ClassNotFoundException cnfe) {
+			} catch (ClassNotFoundException cnfe) {
 				return null;
 			}
-		}
-		else {
+		} else {
 			return result;
 		}
 	}
 
-	public Map<String,ClassMetadata> getAllClassMetadata() throws HibernateException {
+
+
+	@Override
+	public Map<String, ClassMetadata> getAllClassMetadata() throws HibernateException {
 		return classMetadata;
 	}
 
-	public Map getAllCollectionMetadata() throws HibernateException {
+	@Override
+	public Map<String, CollectionMetadata> getAllCollectionMetadata() throws HibernateException {
 		return collectionMetadata;
 	}
 
-	public Type getReferencedPropertyType(String className, String propertyName)
-		throws MappingException {
+	@Override
+	public Type getReferencedPropertyType(String className, String propertyName) throws MappingException {
 		return getEntityPersister(className).getPropertyType(propertyName);
 	}
 
+	@Override
 	public ConnectionProvider getConnectionProvider() {
 		return settings.getConnectionProvider();
 	}
+
+
 
 	/**
 	 * Closes the session factory, releasing all held resources.
@@ -917,10 +996,10 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 	 * it is important to not keep referencing the instance to let the garbage
 	 * collector release the memory.
 	 */
+	@Override
 	public void close() throws HibernateException {
-
-		if ( isClosed ) {
-			log.trace( "already closed" );
+		if (isClosed) {
+			log.trace("already closed");
 			return;
 		}
 
@@ -928,28 +1007,21 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 
 		isClosed = true;
 
-		Iterator iter = entityPersisters.values().iterator();
-		while ( iter.hasNext() ) {
-			EntityPersister p = (EntityPersister) iter.next();
-			if ( p.hasCache() ) {
+		for (EntityPersister p : entityPersisters.values()) {
+			if (p.hasCache()) {
 				p.getCacheAccessStrategy().getRegion().destroy();
 			}
 		}
 
-		iter = collectionPersisters.values().iterator();
-		while ( iter.hasNext() ) {
-			CollectionPersister p = (CollectionPersister) iter.next();
-			if ( p.hasCache() ) {
+		for (CollectionPersister p : collectionPersisters.values()) {
+			if (p.hasCache()) {
 				p.getCacheAccessStrategy().getRegion().destroy();
 			}
 		}
 
-		if ( settings.isQueryCacheEnabled() )  {
+		if (settings.isQueryCacheEnabled())  {
 			queryCache.destroy();
-
-			iter = queryCaches.values().iterator();
-			while ( iter.hasNext() ) {
-				QueryCache cache = (QueryCache) iter.next();
+			for (QueryCache cache : queryCaches.values()) {
 				cache.destroy();
 			}
 			updateTimestampsCache.destroy();
@@ -957,147 +1029,162 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 
 		settings.getRegionFactory().stop();
 
-		if ( settings.isAutoDropSchema() ) {
-			schemaExport.drop( false, true );
+		if (settings.isAutoDropSchema()) {
+			schemaExport.drop(false, true);
 		}
 
 		try {
 			settings.getConnectionProvider().close();
-		}
-		finally {
+		} finally {
 			SessionFactoryObjectFactory.removeInstance(uuid, name, properties);
 		}
 
-		observer.sessionFactoryClosed( this );
+		observer.sessionFactoryClosed(this);
 		eventListeners.destroyListeners();
 	}
 
+
+
 	private class CacheImpl implements Cache {
-		public boolean containsEntity(Class entityClass, Serializable identifier) {
-			return containsEntity( entityClass.getName(), identifier );
+		@Override
+		public boolean containsEntity(Class<?> entityClass, Serializable identifier) {
+			return containsEntity(entityClass.getName(), identifier);
 		}
 
+		@Override
 		public boolean containsEntity(String entityName, Serializable identifier) {
-			EntityPersister p = getEntityPersister( entityName );
-			return p.hasCache() &&
-					p.getCacheAccessStrategy().getRegion().contains( buildCacheKey( identifier, p ) );
+			EntityPersister p = getEntityPersister(entityName);
+			CacheKey cacheKey = buildCacheKey(identifier, p);
+			return p.hasCache() && 
+				p.getCacheAccessStrategy().getRegion().contains(cacheKey);
 		}
 
-		public void evictEntity(Class entityClass, Serializable identifier) {
-			evictEntity( entityClass.getName(), identifier );
+		@Override
+		public void evictEntity(Class<?> entityClass, Serializable identifier) {
+			evictEntity(entityClass.getName(), identifier);
 		}
 
+		@Override
 		public void evictEntity(String entityName, Serializable identifier) {
-			EntityPersister p = getEntityPersister( entityName );
-			if ( p.hasCache() ) {
-				if ( log.isDebugEnabled() ) {
-					log.debug( 
-							"evicting second-level cache: " +
-									MessageHelper.infoString( p, identifier, SessionFactoryImpl.this )
+			EntityPersister p = getEntityPersister(entityName);
+			if (p.hasCache()) {
+				if (log.isDebugEnabled()) {
+					log.debug(
+						"evicting second-level cache: " + 
+						MessageHelper.infoString(p, identifier, SessionFactoryImpl.this)
 					);
 				}
-				p.getCacheAccessStrategy().evict( buildCacheKey( identifier, p ) );
+				CacheKey cacheKey = buildCacheKey(identifier, p);
+				p.getCacheAccessStrategy().evict(cacheKey);
 			}
 		}
 
 		private CacheKey buildCacheKey(Serializable identifier, EntityPersister p) {
 			return new CacheKey(
-					identifier,
-					p.getIdentifierType(),
-					p.getRootEntityName(),
-					EntityMode.POJO,
-					SessionFactoryImpl.this
+				identifier, 
+				p.getIdentifierType(), 
+				p.getRootEntityName(), 
+				EntityMode.POJO, 
+				SessionFactoryImpl.this
 			);
 		}
 
-		public void evictEntityRegion(Class entityClass) {
-			evictEntityRegion( entityClass.getName() );
+		@Override
+		public void evictEntityRegion(Class<?> entityClass) {
+			evictEntityRegion(entityClass.getName());
 		}
 
+		@Override
 		public void evictEntityRegion(String entityName) {
-			EntityPersister p = getEntityPersister( entityName );
-			if ( p.hasCache() ) {
-				if ( log.isDebugEnabled() ) {
-					log.debug( "evicting second-level cache: " + p.getEntityName() );
+			EntityPersister p = getEntityPersister(entityName);
+			if (p.hasCache()) {
+				if (log.isDebugEnabled()) {
+					log.debug("evicting second-level cache: " + p.getEntityName());
 				}
 				p.getCacheAccessStrategy().evictAll();
 			}
 		}
 
+		@Override
 		public void evictEntityRegions() {
-			Iterator entityNames = entityPersisters.keySet().iterator();
-			while ( entityNames.hasNext() ) {
-				evictEntityRegion( ( String ) entityNames.next() );
+			for (String entityName : entityPersisters.keySet()) {
+				evictEntityRegion(entityName);
 			}
 		}
 
+		@Override
 		public boolean containsCollection(String role, Serializable ownerIdentifier) {
-			CollectionPersister p = getCollectionPersister( role );
-			return p.hasCache() &&
-					p.getCacheAccessStrategy().getRegion().contains( buildCacheKey( ownerIdentifier, p ) );
+			CollectionPersister p = getCollectionPersister(role);
+			CacheKey cacheKey = buildCacheKey(ownerIdentifier, p);
+			return p.hasCache() && 
+				p.getCacheAccessStrategy().getRegion().contains(cacheKey);
 		}
 
+		@Override
 		public void evictCollection(String role, Serializable ownerIdentifier) {
-			CollectionPersister p = getCollectionPersister( role );
-			if ( p.hasCache() ) {
-				if ( log.isDebugEnabled() ) {
+			CollectionPersister p = getCollectionPersister(role);
+			if (p.hasCache()) {
+				if (log.isDebugEnabled()) {
 					log.debug(
-							"evicting second-level cache: " +
-									MessageHelper.collectionInfoString(p, ownerIdentifier, SessionFactoryImpl.this)
+						"evicting second-level cache: " + 
+						MessageHelper.collectionInfoString(p, ownerIdentifier, SessionFactoryImpl.this)
 					);
 				}
-				CacheKey cacheKey = buildCacheKey( ownerIdentifier, p );
-				p.getCacheAccessStrategy().evict( cacheKey );
+				CacheKey cacheKey = buildCacheKey(ownerIdentifier, p);
+				p.getCacheAccessStrategy().evict(cacheKey);
 			}
 		}
 
 		private CacheKey buildCacheKey(Serializable ownerIdentifier, CollectionPersister p) {
 			return new CacheKey(
-					ownerIdentifier,
-					p.getKeyType(),
-					p.getRole(),
-					EntityMode.POJO,
-					SessionFactoryImpl.this
+				ownerIdentifier, 
+				p.getKeyType(), 
+				p.getRole(), 
+				EntityMode.POJO, 
+				SessionFactoryImpl.this
 			);
 		}
 
+		@Override
 		public void evictCollectionRegion(String role) {
-			CollectionPersister p = getCollectionPersister( role );
-			if ( p.hasCache() ) {
-				if ( log.isDebugEnabled() ) {
-					log.debug( "evicting second-level cache: " + p.getRole() );
+			CollectionPersister p = getCollectionPersister(role);
+			if (p.hasCache()) {
+				if (log.isDebugEnabled()) {
+					log.debug("evicting second-level cache: " + p.getRole());
 				}
 				p.getCacheAccessStrategy().evictAll();
 			}
 		}
 
+		@Override
 		public void evictCollectionRegions() {
-			Iterator collectionRoles = collectionPersisters.keySet().iterator();
-			while ( collectionRoles.hasNext() ) {
-				evictCollectionRegion( ( String ) collectionRoles.next() );
+			for (String collectionRole : collectionPersisters.keySet()) {
+				evictCollectionRegion(collectionRole);
 			}
 		}
 
+		@Override
 		public boolean containsQuery(String regionName) {
-			return queryCaches.get( regionName ) != null;
+			return queryCaches.get(regionName) != null;
 		}
 
+		@Override
 		public void evictDefaultQueryRegion() {
-			if ( settings.isQueryCacheEnabled() ) {
+			if (settings.isQueryCacheEnabled()) {
 				queryCache.clear();
 			}
 		}
 
+		@Override
 		public void evictQueryRegion(String regionName) {
-			if ( regionName == null ) {
+			if (regionName == null) {
 				throw new NullPointerException(
-						"Region-name cannot be null (use Cache#evictDefaultQueryRegion to evict the default query cache)"
+					"Region-name cannot be null (use Cache#evictDefaultQueryRegion to evict the default query cache)"
 				);
-			}
-			else {
-				if ( settings.isQueryCacheEnabled() ) {
-					QueryCache namedQueryCache = queryCaches.get( regionName );
-					if ( namedQueryCache != null ) {
+			} else {
+				if (settings.isQueryCacheEnabled()) {
+					QueryCache namedQueryCache = queryCaches.get(regionName);
+					if (namedQueryCache != null) {
 						namedQueryCache.clear();
 						// TODO : cleanup entries in queryCaches + allCacheRegions ?
 					}
@@ -1105,60 +1192,76 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 			}
 		}
 
+		@Override
 		public void evictQueryRegions() {
-			for ( QueryCache queryCache : queryCaches.values() ) {
+			for (QueryCache queryCache : queryCaches.values()) {
 				queryCache.clear();
 				// TODO : cleanup entries in queryCaches + allCacheRegions ?
 			}
 		}
 	}
 
+
+
+	@Override
 	public Cache getCache() {
 		return cacheAccess;
 	}
 
+	@Override
 	public void evictEntity(String entityName, Serializable id) throws HibernateException {
-		getCache().evictEntity( entityName, id );
+		getCache().evictEntity(entityName, id);
 	}
 
+	@Override
 	public void evictEntity(String entityName) throws HibernateException {
-		getCache().evictEntityRegion( entityName );
+		getCache().evictEntityRegion(entityName);
 	}
 
-	public void evict(Class persistentClass, Serializable id) throws HibernateException {
-		getCache().evictEntity( persistentClass, id );
+	@Override
+	public void evict(Class<?> persistentClass, Serializable id) throws HibernateException {
+		getCache().evictEntity(persistentClass, id);
 	}
 
-	public void evict(Class persistentClass) throws HibernateException {
-		getCache().evictEntityRegion( persistentClass );
+	@Override
+	public void evict(Class<?> persistentClass) throws HibernateException {
+		getCache().evictEntityRegion(persistentClass);
 	}
 
+	@Override
 	public void evictCollection(String roleName, Serializable id) throws HibernateException {
-		getCache().evictCollection( roleName, id );
+		getCache().evictCollection(roleName, id);
 	}
 
+	@Override
 	public void evictCollection(String roleName) throws HibernateException {
-		getCache().evictCollectionRegion( roleName );
+		getCache().evictCollectionRegion(roleName);
 	}
 
+	@Override
 	public void evictQueries() throws HibernateException {
-		if ( settings.isQueryCacheEnabled() ) {
+		if (settings.isQueryCacheEnabled()) {
 			queryCache.clear();
 		}
 	}
 
+	@Override
 	public void evictQueries(String regionName) throws HibernateException {
-		getCache().evictQueryRegion( regionName );
+		getCache().evictQueryRegion(regionName);
 	}
 
+	@Override
 	public UpdateTimestampsCache getUpdateTimestampsCache() {
 		return updateTimestampsCache;
 	}
 
+	@Override
 	public QueryCache getQueryCache() {
 		return queryCache;
 	}
 
+
+	@Override
 	public QueryCache getQueryCache(String regionName) throws HibernateException {
 		if ( regionName == null ) {
 			return getQueryCache();
@@ -1178,18 +1281,23 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		return currentQueryCache;
 	}
 
+
+	@Override
 	public Region getSecondLevelCacheRegion(String regionName) {
-		return allCacheRegions.get( regionName );
+		return allCacheRegions.get(regionName);
 	}
 
-	public Map getAllSecondLevelCacheRegions() {
-		return new HashMap( allCacheRegions );
+	@Override
+	public Map<String, Region> getAllSecondLevelCacheRegions() {
+		return new HashMap<String, Region>(allCacheRegions);
 	}
 
+	@Override
 	public boolean isClosed() {
 		return isClosed;
 	}
 
+	@Override
 	public Statistics getStatistics() {
 		return statistics;
 	}
@@ -1198,19 +1306,22 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		return (StatisticsImplementor) statistics;
 	}
 
+	@Override
 	public FilterDefinition getFilterDefinition(String filterName) throws HibernateException {
-		FilterDefinition def = ( FilterDefinition ) filters.get( filterName );
-		if ( def == null ) {
-			throw new HibernateException( "No such filter configured [" + filterName + "]" );
+		FilterDefinition def = filters.get(filterName);
+		if (def == null) {
+			throw new HibernateException("No such filter configured [" + filterName + "]");
 		}
 		return def;
 	}
 
+	@Override
 	public boolean containsFetchProfileDefinition(String name) {
-		return fetchProfiles.containsKey( name );
+		return fetchProfiles.containsKey(name);
 	}
 
-	public Set getDefinedFilterNames() {
+	@Override
+	public Set<String> getDefinedFilterNames() {
 		return filters.keySet();
 	}
 
@@ -1218,9 +1329,12 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		return settings.getBatcherFactory();
 	}
 
+	@Override
 	public IdentifierGenerator getIdentifierGenerator(String rootEntityName) {
-		return (IdentifierGenerator) identifierGenerators.get(rootEntityName);
+		return identifierGenerators.get(rootEntityName);
 	}
+
+
 
 	private CurrentSessionContext buildCurrentSessionContext() {
 		String impl = properties.getProperty( Environment.CURRENT_SESSION_CONTEXT_CLASS );
@@ -1246,42 +1360,48 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 		}
 		else {
 			try {
-				Class implClass = ReflectHelper.classForName( impl );
-				return ( CurrentSessionContext ) implClass
-						.getConstructor( new Class[] { SessionFactoryImplementor.class } )
-						.newInstance( new Object[] { this } );
-			}
-			catch( Throwable t ) {
+				Class<?> implClass = ReflectHelper.classForName(impl);
+				Constructor<?> constructor = implClass.getConstructor(new Class[] {SessionFactoryImplementor.class});
+				return (CurrentSessionContext) constructor.newInstance(new Object[] {this});
+			} catch( Throwable t ) {
 				log.error( "Unable to construct current session context [" + impl + "]", t );
 				return null;
 			}
 		}
 	}
 
-	public EventListeners getEventListeners()
-	{
+
+
+	public EventListeners getEventListeners() {
 		return eventListeners;
 	}
 
+	@Override
 	public EntityNotFoundDelegate getEntityNotFoundDelegate() {
 		return entityNotFoundDelegate;
 	}
 
+	@Override
 	public SQLFunctionRegistry getSqlFunctionRegistry() {
 		return sqlFunctionRegistry;
 	}
 
+	@Override
 	public FetchProfile getFetchProfile(String name) {
-		return ( FetchProfile ) fetchProfiles.get( name );
+		return fetchProfiles.get(name);
 	}
 
+	@Override
 	public SessionFactoryObserver getFactoryObserver() {
 		return observer;
 	}
 
+	@Override
 	public TypeHelper getTypeHelper() {
 		return typeHelper;
 	}
+
+
 
 	/**
 	 * Custom serialization hook used during Session serialization.
@@ -1296,6 +1416,7 @@ public final class SessionFactoryImpl implements SessionFactory, SessionFactoryI
 			oos.writeUTF( name );
 		}
 	}
+
 
 	/**
 	 * Custom deserialization hook used during Session deserialization.

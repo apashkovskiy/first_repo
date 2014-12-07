@@ -31,5 +31,6 @@ import org.hibernate.transaction.TransactionFactory;
  * @author Steve Ebersole
  */
 public interface AfterCompletionAction {
+	// CLASS FULLY INSPECTED BY ME
 	public void doAction(TransactionFactory.Context ctx, int status);
 }

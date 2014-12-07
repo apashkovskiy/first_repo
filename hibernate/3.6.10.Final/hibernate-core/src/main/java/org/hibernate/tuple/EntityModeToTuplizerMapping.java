@@ -37,19 +37,23 @@ import org.hibernate.HibernateException;
  * @author Steve Ebersole
  */
 public abstract class EntityModeToTuplizerMapping implements Serializable {
-	private final Map<EntityMode,Tuplizer> tuplizers;
+	private static final long serialVersionUID = -1869730501971318580L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
+	private final Map<EntityMode, Tuplizer> tuplizers;
+
 
 	public EntityModeToTuplizerMapping() {
-		tuplizers = new ConcurrentHashMap<EntityMode,Tuplizer>();
+		tuplizers = new ConcurrentHashMap<EntityMode, Tuplizer>();
 	}
 
-	@SuppressWarnings({ "unchecked", "UnusedDeclaration" })
-	public EntityModeToTuplizerMapping(Map tuplizers) {
+	public EntityModeToTuplizerMapping(Map<EntityMode, Tuplizer> tuplizers) {
 		this.tuplizers = tuplizers;
 	}
 
+
 	protected void addTuplizer(EntityMode entityMode, Tuplizer tuplizer) {
-		tuplizers.put( entityMode, tuplizer );
+		tuplizers.put(entityMode, tuplizer);
 	}
 
 	/**
@@ -57,7 +61,7 @@ public abstract class EntityModeToTuplizerMapping implements Serializable {
 	 *
 	 * @return Iterator over defined tuplizers
 	 */
-	public Iterator iterateTuplizers() {
+	public Iterator<Tuplizer> iterateTuplizers() {
 		return tuplizers.values().iterator();
 	}
 
@@ -68,8 +72,8 @@ public abstract class EntityModeToTuplizerMapping implements Serializable {
 	 * @return The guessed entity mode.
 	 */
 	public EntityMode guessEntityMode(Object object) {
-		for ( Map.Entry<EntityMode, Tuplizer> entityModeTuplizerEntry : tuplizers.entrySet() ) {
-			if ( entityModeTuplizerEntry.getValue().isInstance( object ) ) {
+		for (Map.Entry<EntityMode, Tuplizer> entityModeTuplizerEntry : tuplizers.entrySet()) {
+			if (entityModeTuplizerEntry.getValue().isInstance(object)) {
 				return entityModeTuplizerEntry.getKey();
 			}
 		}
@@ -84,7 +88,7 @@ public abstract class EntityModeToTuplizerMapping implements Serializable {
 	 * @return The tuplizer, or null if not found.
 	 */
 	public Tuplizer getTuplizerOrNull(EntityMode entityMode) {
-		return tuplizers.get( entityMode );
+		return tuplizers.get(entityMode);
 	}
 
 	/**
@@ -97,9 +101,9 @@ public abstract class EntityModeToTuplizerMapping implements Serializable {
 	 * @throws HibernateException Unable to locate the requested tuplizer.
 	 */
 	public Tuplizer getTuplizer(EntityMode entityMode) {
-		Tuplizer tuplizer = getTuplizerOrNull( entityMode );
-		if ( tuplizer == null ) {
-			throw new HibernateException( "No tuplizer found for entity-mode [" + entityMode + "]");
+		Tuplizer tuplizer = getTuplizerOrNull(entityMode);
+		if (tuplizer == null) {
+			throw new HibernateException("No tuplizer found for entity-mode [" + entityMode + "]");
 		}
 		return tuplizer;
 	}

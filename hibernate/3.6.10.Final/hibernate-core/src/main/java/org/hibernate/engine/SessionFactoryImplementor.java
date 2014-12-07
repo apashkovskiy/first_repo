@@ -189,7 +189,7 @@ public interface SessionFactoryImplementor extends Mapping, SessionFactory {
 	 *
 	 * @return The map of regions
 	 */
-	public Map getAllSecondLevelCacheRegions();
+	public Map<String, Region> getAllSecondLevelCacheRegions();
 	
 	/**
 	 * Retrieves the SQLExceptionConverter in effect for this SessionFactory.
