@@ -24,12 +24,12 @@
  */
 package org.hibernate.engine;
 
-import org.hibernate.type.Type;
-
 import java.io.Serializable;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+
+import org.hibernate.type.Type;
 
 /**
  * A FilterDefinition defines the global attributes of a dynamic filter.  This
@@ -38,19 +38,22 @@ import java.util.Set;
  * @author Steve Ebersole
  */
 public class FilterDefinition implements Serializable {
+	private static final long serialVersionUID = -9156777617187433605L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 	private final String filterName;
 	private final String defaultFilterCondition;
-	private final Map parameterTypes = new HashMap();
+	private final Map<String, Type> parameterTypes = new HashMap<String, Type>();
 
 	/**
 	 * Construct a new FilterDefinition instance.
 	 *
 	 * @param name The name of the filter for which this configuration is in effect.
 	 */
-	public FilterDefinition(String name, String defaultCondition, Map parameterTypes) {
+	public FilterDefinition(String name, String defaultCondition, Map<String, Type> parameterTypes) {
 		this.filterName = name;
 		this.defaultFilterCondition = defaultCondition;
-		this.parameterTypes.putAll( parameterTypes );
+		this.parameterTypes.putAll(parameterTypes);
 	}
 
 	/**
@@ -67,7 +70,7 @@ public class FilterDefinition implements Serializable {
 	 *
 	 * @return The parameters named by this configuration.
 	 */
-	public Set getParameterNames() {
+	public Set<String> getParameterNames() {
 		return parameterTypes.keySet();
 	}
 
@@ -78,14 +81,14 @@ public class FilterDefinition implements Serializable {
 	 * @return The type of the named parameter.
 	 */
     public Type getParameterType(String parameterName) {
-	    return (Type) parameterTypes.get(parameterName);
+	    return parameterTypes.get(parameterName);
     }
 
 	public String getDefaultFilterCondition() {
 		return defaultFilterCondition;
 	}
 
-	public Map getParameterTypes() {
+	public Map<String, Type> getParameterTypes() {
 		return parameterTypes;
 	}
 

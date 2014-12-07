@@ -30,6 +30,8 @@ package org.hibernate;
  * @author Steve Ebersole
  */
 public interface EntityNameResolver {
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Given an entity instance, determine its entity-name.
 	 *

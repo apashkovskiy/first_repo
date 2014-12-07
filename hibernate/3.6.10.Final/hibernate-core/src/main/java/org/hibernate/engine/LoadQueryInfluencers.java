@@ -47,27 +47,32 @@ import org.hibernate.impl.FilterImpl;
  * @author Steve Ebersole
  */
 public class LoadQueryInfluencers implements Serializable {
+	private static final long serialVersionUID = 7431352121819746401L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * Static reference useful for cases where we are creating load SQL
 	 * outside the context of any influencers.  One such example is
 	 * anything created by the session factory.
 	 */
 	public static LoadQueryInfluencers NONE = new LoadQueryInfluencers();
+	static final Map<String, Filter> EMPTY_MAP = new HashMap<String, Filter>();
+	static final Set<String> EMPTY_SET = new HashSet<String>();
 
 	private final SessionFactoryImplementor sessionFactory;
 	private String internalFetchProfile;
-	private Map enabledFilters;
-	private Set enabledFetchProfileNames;
+	private Map<String, Filter> enabledFilters;
+	private Set<String> enabledFetchProfileNames;
 
 	public LoadQueryInfluencers() {
-		this( null, java.util.Collections.EMPTY_MAP, java.util.Collections.EMPTY_SET );
+		this(null);
 	}
 
 	public LoadQueryInfluencers(SessionFactoryImplementor sessionFactory) {
-		this( sessionFactory, new HashMap(), new HashSet() );
+		this(sessionFactory, EMPTY_MAP, EMPTY_SET);
 	}
 
-	private LoadQueryInfluencers(SessionFactoryImplementor sessionFactory, Map enabledFilters, Set enabledFetchProfileNames) {
+	private LoadQueryInfluencers(SessionFactoryImplementor sessionFactory, Map<String, Filter> enabledFilters, Set<String> enabledFetchProfileNames) {
 		this.sessionFactory = sessionFactory;
 		this.enabledFilters = enabledFilters;
 		this.enabledFetchProfileNames = enabledFetchProfileNames;
@@ -85,10 +90,9 @@ public class LoadQueryInfluencers implements Serializable {
 	}
 
 	public void setInternalFetchProfile(String internalFetchProfile) {
-		if ( sessionFactory == null ) {
-			// thats the signal that this is the immutable, context-less
-			// variety
-			throw new IllegalStateException( "Cannot modify context-less LoadQueryInfluencers" );
+		if (sessionFactory == null) {
+			// thats the signal that this is the immutable, context-less variety
+			throw new IllegalStateException("Cannot modify context-less LoadQueryInfluencers");
 		}
 		this.internalFetchProfile = internalFetchProfile;
 	}
@@ -100,12 +104,12 @@ public class LoadQueryInfluencers implements Serializable {
 		return enabledFilters != null && !enabledFilters.isEmpty();
 	}
 
-	public Map getEnabledFilters() {
+	public Map<String, Filter> getEnabledFilters() {
 		// First, validate all the enabled filters...
 		//TODO: this implementation has bad performance
-		Iterator itr = enabledFilters.values().iterator();
-		while ( itr.hasNext() ) {
-			final Filter filter = ( Filter ) itr.next();
+		Iterator<Filter> itr = enabledFilters.values().iterator();
+		while (itr.hasNext()) {
+			final Filter filter = itr.next();
 			filter.validate();
 		}
 		return enabledFilters;
@@ -115,55 +119,55 @@ public class LoadQueryInfluencers implements Serializable {
 	 * Returns an unmodifiable Set of enabled filter names.
 	 * @return an unmodifiable Set of enabled filter names.
 	 */
-	public Set getEnabledFilterNames() {
-		return java.util.Collections.unmodifiableSet( enabledFilters.keySet() );
+	public Set<String> getEnabledFilterNames() {
+		return java.util.Collections.unmodifiableSet(enabledFilters.keySet());
 	}
 
 	public Filter getEnabledFilter(String filterName) {
-		return ( Filter ) enabledFilters.get( filterName );
+		return enabledFilters.get(filterName);
 	}
 
 	public Filter enableFilter(String filterName) {
-		FilterImpl filter = new FilterImpl( sessionFactory.getFilterDefinition( filterName ) );
-		enabledFilters.put( filterName, filter );
+		FilterImpl filter = new FilterImpl(sessionFactory.getFilterDefinition(filterName));
+		enabledFilters.put(filterName, filter);
 		return filter;
 	}
 
 	public void disableFilter(String filterName) {
-		enabledFilters.remove( filterName );
+		enabledFilters.remove(filterName);
 	}
 
 	public Object getFilterParameterValue(String filterParameterName) {
-		String[] parsed = parseFilterParameterName( filterParameterName );
-		FilterImpl filter = ( FilterImpl ) enabledFilters.get( parsed[0] );
-		if ( filter == null ) {
-			throw new IllegalArgumentException( "Filter [" + parsed[0] + "] currently not enabled" );
+		String[] parsed = parseFilterParameterName(filterParameterName);
+		FilterImpl filter = (FilterImpl) enabledFilters.get(parsed[0]);
+		if (filter == null) {
+			throw new IllegalArgumentException("Filter [" + parsed[0] + "] currently not enabled");
 		}
-		return filter.getParameter( parsed[1] );
+		return filter.getParameter(parsed[1]);
 	}
 
 	public Type getFilterParameterType(String filterParameterName) {
-		String[] parsed = parseFilterParameterName( filterParameterName );
-		FilterDefinition filterDef = sessionFactory.getFilterDefinition( parsed[0] );
-		if ( filterDef == null ) {
-			throw new IllegalArgumentException( "Filter [" + parsed[0] + "] not defined" );
+		String[] parsed = parseFilterParameterName(filterParameterName);
+		FilterDefinition filterDef = sessionFactory.getFilterDefinition(parsed[0]);
+		if (filterDef == null) {
+			throw new IllegalArgumentException("Filter [" + parsed[0] + "] not defined");
 		}
-		Type type = filterDef.getParameterType( parsed[1] );
-		if ( type == null ) {
+		Type type = filterDef.getParameterType(parsed[1]);
+		if (type == null) {
 			// this is an internal error of some sort...
-			throw new InternalError( "Unable to locate type for filter parameter" );
+			throw new InternalError("Unable to locate type for filter parameter");
 		}
 		return type;
 	}
 
 	public static String[] parseFilterParameterName(String filterParameterName) {
-		int dot = filterParameterName.indexOf( '.' );
-		if ( dot <= 0 ) {
-			throw new IllegalArgumentException( "Invalid filter-parameter name format" );
+		int dot = filterParameterName.indexOf('.');
+		if (dot <= 0) {
+			throw new IllegalArgumentException("Invalid filter-parameter name format");
 		}
-		String filterName = filterParameterName.substring( 0, dot );
-		String parameterName = filterParameterName.substring( dot + 1 );
-		return new String[] { filterName, parameterName };
+		String filterName = filterParameterName.substring(0, dot);
+		String parameterName = filterParameterName.substring(dot + 1);
+		return new String[] {filterName, parameterName};
 	}
 
 
@@ -173,29 +177,29 @@ public class LoadQueryInfluencers implements Serializable {
 		return enabledFetchProfileNames != null && !enabledFetchProfileNames.isEmpty();
 	}
 
-	public Set getEnabledFetchProfileNames() {
+	public Set<String> getEnabledFetchProfileNames() {
 		return enabledFetchProfileNames;
 	}
 
 	private void checkFetchProfileName(String name) {
-		if ( !sessionFactory.containsFetchProfileDefinition( name ) ) {
-			throw new UnknownProfileException( name );
+		if (!sessionFactory.containsFetchProfileDefinition(name)) {
+			throw new UnknownProfileException(name);
 		}
 	}
 
 	public boolean isFetchProfileEnabled(String name) throws UnknownProfileException {
-		checkFetchProfileName( name );
-		return enabledFetchProfileNames.contains( name );
+		checkFetchProfileName(name);
+		return enabledFetchProfileNames.contains(name);
 	}
 
 	public void enableFetchProfile(String name) throws UnknownProfileException {
-		checkFetchProfileName( name );
-		enabledFetchProfileNames.add( name );
+		checkFetchProfileName(name);
+		enabledFetchProfileNames.add(name);
 	}
 
 	public void disableFetchProfile(String name) throws UnknownProfileException {
-		checkFetchProfileName( name );
-		enabledFetchProfileNames.remove( name );
+		checkFetchProfileName(name);
+		enabledFetchProfileNames.remove(name);
 	}
 
 }

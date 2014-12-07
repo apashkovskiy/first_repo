@@ -24,30 +24,29 @@
  */
 package org.hibernate.jdbc;
 
-import java.io.Serializable;
-import java.io.ObjectOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.SQLException;
 
 import javax.transaction.TransactionManager;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.hibernate.ConnectionReleaseMode;
 import org.hibernate.HibernateException;
 import org.hibernate.Interceptor;
 import org.hibernate.SessionException;
 import org.hibernate.Transaction;
 import org.hibernate.TransactionException;
+import org.hibernate.engine.SessionFactoryImplementor;
+import org.hibernate.exception.JDBCExceptionHelper;
+import org.hibernate.transaction.TransactionFactory;
 import org.hibernate.transaction.synchronization.CallbackCoordinator;
 import org.hibernate.transaction.synchronization.HibernateSynchronizationImpl;
 import org.hibernate.util.JTAHelper;
-import org.hibernate.engine.SessionFactoryImplementor;
-import org.hibernate.exception.JDBCExceptionHelper;
-import org.hibernate.transaction.CacheSynchronization;
-import org.hibernate.transaction.TransactionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Acts as the mediary between "entity-mode related" sessions in terms of
@@ -56,6 +55,7 @@ import org.hibernate.transaction.TransactionFactory;
  * @author Steve Ebersole
  */
 public class JDBCContext implements Serializable, ConnectionManager.Callback {
+	private static final long serialVersionUID = -5256138314819088383L; // pipan was there
 
 	// TODO : make this the factory for "entity mode related" sessions;
 	// also means making this the target of transaction-synch and the
@@ -65,7 +65,7 @@ public class JDBCContext implements Serializable, ConnectionManager.Callback {
 	// ConnectionManager is a "JDBCContext"?  A "SessionContext" should
 	// live in the impl package...
 
-	private static final Logger log = LoggerFactory.getLogger( JDBCContext.class );
+	private static final Logger log = LoggerFactory.getLogger(JDBCContext.class);
 
 	public static interface Context extends TransactionFactory.Context {
 		/**
@@ -246,7 +246,7 @@ public class JDBCContext implements Serializable, ConnectionManager.Callback {
 	}
 	
 	public void beforeTransactionCompletion(Transaction tx) {
-		log.trace( "before transaction completion" );
+		log.trace("before transaction completion");
 		owner.beforeTransactionCompletion(tx);
 	}
 	

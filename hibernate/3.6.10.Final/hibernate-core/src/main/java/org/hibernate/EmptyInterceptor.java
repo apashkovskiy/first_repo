@@ -36,9 +36,10 @@ import org.hibernate.type.Type;
  * @author Gavin King
  */
 public class EmptyInterceptor implements Interceptor, Serializable {
-	
+	private static final long serialVersionUID = 7826622265353590705L; // pipan was there
+
 	public static final Interceptor INSTANCE = new EmptyInterceptor();
-	
+
 	protected EmptyInterceptor() {}
 
 	public void onDelete(
@@ -76,8 +77,8 @@ public class EmptyInterceptor implements Interceptor, Serializable {
 		return false;
 	}
 
-	public void postFlush(Iterator entities) {}
-	public void preFlush(Iterator entities) {}
+	public void postFlush(Iterator<?> entities) {}
+	public void preFlush(Iterator<?> entities) {}
 
 	public Boolean isTransient(Object entity) {
 		return null;
@@ -117,5 +118,5 @@ public class EmptyInterceptor implements Interceptor, Serializable {
 	public void onCollectionRecreate(Object collection, Serializable key) throws CallbackException {}
 
 	public void onCollectionUpdate(Object collection, Serializable key) throws CallbackException {}
-	
+
 }

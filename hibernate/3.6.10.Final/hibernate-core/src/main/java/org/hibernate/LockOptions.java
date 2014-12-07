@@ -26,8 +26,9 @@ package org.hibernate;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
 
 /**
@@ -36,6 +37,9 @@ import java.util.Iterator;
  * @author Scott Marlow
  */
 public class LockOptions implements Serializable {
+	private static final long serialVersionUID = 7372650890397033454L; // pipan was there
+	// CLASS FULLY INSPECTED BY ME
+
 	/**
 	 * NONE represents LockMode.NONE (timeout + scope do not apply)
 	 */
@@ -50,14 +54,17 @@ public class LockOptions implements Serializable {
 	 */
 	public static final LockOptions UPGRADE = new LockOptions(LockMode.UPGRADE);
 
+
+	private LockMode lockMode = LockMode.NONE;
+
 	public LockOptions() {
+		
 	}
 
 	public LockOptions( LockMode lockMode) {
 		this.lockMode = lockMode;
 	}
 
-	private LockMode lockMode = LockMode.NONE;
 
 	/**
 	 * Retrieve the overall lock mode in effect for this set of options.
@@ -84,7 +91,8 @@ public class LockOptions implements Serializable {
 		return this;
 	}
 
-	private Map aliasSpecificLockModes = new HashMap();
+
+	private Map<String, LockMode> aliasSpecificLockModes = new HashMap<String, LockMode>();
 
 	/**
 	 * Specify the {@link LockMode} to be used for a specific query alias.
@@ -98,7 +106,7 @@ public class LockOptions implements Serializable {
 	 * @see Criteria#setLockMode(String, LockMode)
 	 */
 	public LockOptions setAliasSpecificLockMode(String alias, LockMode lockMode) {
-		aliasSpecificLockModes.put( alias, lockMode );
+		aliasSpecificLockModes.put(alias, lockMode);
 		return this;
 	}
 
@@ -114,7 +122,7 @@ public class LockOptions implements Serializable {
 	 * @return The explicit lock mode for that alias.
 	 */
 	public LockMode getAliasSpecificLockMode(String alias) {
-		return (LockMode) aliasSpecificLockModes.get( alias );
+		return aliasSpecificLockModes.get(alias);
 	}
 
 	/**
@@ -131,8 +139,8 @@ public class LockOptions implements Serializable {
 	 * @return The effective lock mode.
 	 */
 	public LockMode getEffectiveLockMode(String alias) {
-		LockMode lockMode = getAliasSpecificLockMode( alias );
-		if ( lockMode == null ) {
+		LockMode lockMode = getAliasSpecificLockMode(alias);
+		if (lockMode == null) {
 			lockMode = this.lockMode;
 		}
 		return lockMode == null ? LockMode.NONE : lockMode;
@@ -152,7 +160,7 @@ public class LockOptions implements Serializable {
 	 *
 	 * @return Iterator for accessing the Map.Entry's
 	 */
-	public Iterator getAliasLockIterator() {
+	public Iterator<Entry<String, LockMode>> getAliasLockIterator() {
 		return aliasSpecificLockModes.entrySet().iterator();
 	}
 
@@ -161,6 +169,7 @@ public class LockOptions implements Serializable {
 	 * @see #getTimeOut
 	 */
 	public static final int NO_WAIT = 0;
+
 	/**
 	 * Indicates that there is no timeout for the acquisition.
 	 * @see #getTimeOut
@@ -199,7 +208,7 @@ public class LockOptions implements Serializable {
 		return this;
 	}
 
-	private boolean scope=false;
+	private boolean scope = false;
 
 	/**
 	 * Retrieve the current lock scope setting.
@@ -235,7 +244,7 @@ public class LockOptions implements Serializable {
 		dest.setLockMode(from.getLockMode());
 		dest.setScope(from.getScope());
 		dest.setTimeOut(from.getTimeOut());
-		dest.aliasSpecificLockModes = new HashMap(from.aliasSpecificLockModes );
+		dest.aliasSpecificLockModes = new HashMap<String, LockMode>(from.aliasSpecificLockModes);
 		return dest;
 	}
 }

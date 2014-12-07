@@ -306,13 +306,13 @@ public class Configuration implements Serializable {
 		metadataSourceQueue = new MetadataSourceQueue();
 		createReflectionManager();
 
-		classes = new HashMap<String,PersistentClass>();
-		imports = new HashMap<String,String>();
-		collections = new HashMap<String,Collection>();
-		tables = new TreeMap<String,Table>();
+		classes = new HashMap<String, PersistentClass>();
+		imports = new HashMap<String, String>();
+		collections = new HashMap<String, Collection>();
+		tables = new TreeMap<String, Table>();
 
 		namedQueries = new HashMap<String,NamedQueryDefinition>();
-		namedSqlQueries = new HashMap<String,NamedSQLQueryDefinition>();
+		namedSqlQueries = new HashMap<String, NamedSQLQueryDefinition>();
 		sqlResultSetMappings = new HashMap<String, ResultSetMappingDefinition>();
 
 		typeDefs = new HashMap<String,TypeDef>();
@@ -391,7 +391,7 @@ public class Configuration implements Serializable {
 	 *
 	 * @return Iterator of the collection mappings currently contained in the configuration.
 	 */
-	public Iterator getCollectionMappings() {
+	public Iterator<Collection> getCollectionMappings() {
 		return collections.values().iterator();
 	}
 
@@ -431,7 +431,7 @@ public class Configuration implements Serializable {
 	 * @return The collection mapping information
 	 */
 	public Collection getCollectionMapping(String role) {
-		return collections.get( role );
+		return collections.get(role);
 	}
 
 	/**
@@ -968,7 +968,7 @@ public class Configuration implements Serializable {
 			}
 		}
 
-		for ( Collection collection : collections.values() ) {
+		for (Collection collection : collections.values()) {
 			if ( collection.isIdentified() ) {
 				IdentifierGenerator ig = ( ( IdentifierCollection ) collection ).getIdentifier().createIdentifierGenerator(
 						getIdentifierGeneratorFactory(),
@@ -1357,13 +1357,12 @@ public class Configuration implements Serializable {
 	}
 
 	private void validate() throws MappingException {
-		Iterator iter = classes.values().iterator();
-		while ( iter.hasNext() ) {
-			( (PersistentClass) iter.next() ).validate( mapping );
+		for (PersistentClass persistentClass : classes.values()) {
+			persistentClass.validate(mapping);
 		}
-		iter = collections.values().iterator();
-		while ( iter.hasNext() ) {
-			( (Collection) iter.next() ).validate( mapping );
+		
+		for (Collection collection : collections.values()) {
+			collection.validate(mapping);
 		}
 	}
 
@@ -1851,7 +1850,7 @@ public class Configuration implements Serializable {
 	 * @throws HibernateException usually indicates an invalid configuration or invalid mapping information
 	 */
 	public SessionFactory buildSessionFactory() throws HibernateException {
-		log.debug( "Preparing to build session factory with filters : " + filterDefinitions );
+		log.debug("Preparing to build session factory with filters : " + filterDefinitions);
 
 		secondPassCompile();
 		if ( ! metadataSourceQueue.isEmpty() ) {
@@ -2840,7 +2839,7 @@ public class Configuration implements Serializable {
 	 *
 	 * @return a mapping from "import" names to fully qualified class names
 	 */
-	public Map<String,String> getImports() {
+	public Map<String, String> getImports() {
 		return imports;
 	}
 
@@ -2866,11 +2865,11 @@ public class Configuration implements Serializable {
 		return settings;
 	}
 
-	public Map getNamedSQLQueries() {
+	public Map<String, NamedSQLQueryDefinition> getNamedSQLQueries() {
 		return namedSqlQueries;
 	}
 
-	public Map getSqlResultSetMappings() {
+	public Map<String, ResultSetMappingDefinition> getSqlResultSetMappings() {
 		return sqlResultSetMappings;
 	}
 
@@ -2989,32 +2988,32 @@ public class Configuration implements Serializable {
 		( ( MetadataProviderInjector ) reflectionManager ).setMetadataProvider( metadataProvider );
 	}
 
-	public Map getFilterDefinitions() {
+	public Map<String, FilterDefinition> getFilterDefinitions() {
 		return filterDefinitions;
 	}
 
 	public void addFilterDefinition(FilterDefinition definition) {
-		filterDefinitions.put( definition.getFilterName(), definition );
+		filterDefinitions.put(definition.getFilterName(), definition);
 	}
 
-	public Iterator iterateFetchProfiles() {
+	public Iterator<FetchProfile> iterateFetchProfiles() {
 		return fetchProfiles.values().iterator();
 	}
 
 	public void addFetchProfile(FetchProfile fetchProfile) {
-		fetchProfiles.put( fetchProfile.getName(), fetchProfile );
+		fetchProfiles.put(fetchProfile.getName(), fetchProfile);
 	}
 
 	public void addAuxiliaryDatabaseObject(AuxiliaryDatabaseObject object) {
 		auxiliaryDatabaseObjects.add( object );
 	}
 
-	public Map getSqlFunctions() {
+	public Map<String, SQLFunction> getSqlFunctions() {
 		return sqlFunctions;
 	}
 
 	public void addSqlFunction(String functionName, SQLFunction function) {
-		sqlFunctions.put( functionName, function );
+		sqlFunctions.put(functionName, function);
 	}
 
 	public TypeResolver getTypeResolver() {
@@ -3198,7 +3197,7 @@ public class Configuration implements Serializable {
 		}
 
 		public Collection getCollection(String role) {
-			return collections.get( role );
+			return collections.get(role);
 		}
 
 		public Iterator<Collection> iterateCollections() {
@@ -3206,9 +3205,9 @@ public class Configuration implements Serializable {
 		}
 
 		public void addCollection(Collection collection) throws DuplicateMappingException {
-			Object old = collections.put( collection.getRole(), collection );
-			if ( old != null ) {
-				throw new DuplicateMappingException( "collection role", collection.getRole() );
+			Object old = collections.put(collection.getRole(), collection);
+			if (old != null) {
+				throw new DuplicateMappingException("collection role", collection.getRole());
 			}
 		}
 
@@ -3295,8 +3294,8 @@ public class Configuration implements Serializable {
 		}
 
 		private void checkQueryName(String name) throws DuplicateMappingException {
-			if ( namedQueries.containsKey( name ) || namedSqlQueries.containsKey( name ) ) {
-				throw new DuplicateMappingException( "query", name );
+			if (namedQueries.containsKey(name) || namedSqlQueries.containsKey(name)) {
+				throw new DuplicateMappingException("query", name);
 			}
 		}
 
@@ -3306,7 +3305,7 @@ public class Configuration implements Serializable {
 		}
 
 		public NamedSQLQueryDefinition getSQLQuery(String name) {
-			return namedSqlQueries.get( name );
+			return namedSqlQueries.get(name);
 		}
 
 		public void addSQLQuery(String name, NamedSQLQueryDefinition query) throws DuplicateMappingException {
@@ -3316,8 +3315,8 @@ public class Configuration implements Serializable {
 		}
 
 		private void applySQLQuery(String name, NamedSQLQueryDefinition query) throws DuplicateMappingException {
-			checkQueryName( name );
-			namedSqlQueries.put( name.intern(), query );
+			checkQueryName(name);
+			namedSqlQueries.put(name.intern(), query);
 		}
 
 		public void addDefaultSQLQuery(String name, NamedSQLQueryDefinition query) {
@@ -3336,9 +3335,9 @@ public class Configuration implements Serializable {
 		}
 
 		public void applyResultSetMapping(ResultSetMappingDefinition sqlResultSetMapping) throws DuplicateMappingException {
-			Object old = sqlResultSetMappings.put( sqlResultSetMapping.getName(), sqlResultSetMapping );
-			if ( old != null ) {
-				throw new DuplicateMappingException( "resultSet",  sqlResultSetMapping.getName() );
+			Object old = sqlResultSetMappings.put(sqlResultSetMapping.getName(), sqlResultSetMapping);
+			if (old != null) {
+				throw new DuplicateMappingException("resultSet",  sqlResultSetMapping.getName());
 			}
 		}
 
@@ -3352,7 +3351,7 @@ public class Configuration implements Serializable {
 		}
 
 		protected void removeResultSetMapping(String name) {
-			sqlResultSetMappings.remove( name );
+			sqlResultSetMappings.remove(name);
 		}
 
 		public TypeDef getTypeDef(String typeName) {
@@ -3365,23 +3364,23 @@ public class Configuration implements Serializable {
 			log.debug( "Added " + typeName + " with class " + typeClass );
 		}
 
-		public Map getFilterDefinitions() {
+		public Map<String, FilterDefinition> getFilterDefinitions() {
 			return filterDefinitions;
 		}
 
 		public FilterDefinition getFilterDefinition(String name) {
-			return filterDefinitions.get( name );
+			return filterDefinitions.get(name);
 		}
 
 		public void addFilterDefinition(FilterDefinition definition) {
-			filterDefinitions.put( definition.getFilterName(), definition );
+			filterDefinitions.put(definition.getFilterName(), definition);
 		}
 
 		public FetchProfile findOrCreateFetchProfile(String name, MetadataSource source) {
-			FetchProfile profile = fetchProfiles.get( name );
-			if ( profile == null ) {
-				profile = new FetchProfile( name, source );
-				fetchProfiles.put( name, profile );
+			FetchProfile profile = fetchProfiles.get(name);
+			if (profile == null) {
+				profile = new FetchProfile(name, source);
+				fetchProfiles.put(name, profile);
 			}
 			return profile;
 		}
